@@ -35,6 +35,16 @@ export const getBackdropUrl = (path: string | null, size: 'w780' | 'w1280' | 'or
   return `${TMDB_IMAGE_BASE}/${size}${path}`
 }
 
+// Get just the poster path for a movie or TV show (lightweight fetch)
+export async function getPosterPath(mediaType: MediaType, id: number): Promise<string | null> {
+  try {
+    const response = await api.get(`/${mediaType}/${id}`)
+    return response.data.poster_path || null
+  } catch {
+    return null
+  }
+}
+
 // Transform TMDB response to our Media type
 const transformToMedia = (item: TMDBSearchResult): Media | null => {
   if (item.media_type === 'person') return null
@@ -441,7 +451,7 @@ export async function getFeaturedContent(): Promise<Media | null> {
 }
 
 // Find TMDB ID by external ID (TVDB or IMDB)
-export async function findByExternalId(externalId: string | number, source: 'imdb_id' | 'tvdb_id'): Promise<{ id: number; mediaType: MediaType } | null> {
+export async function findByExternalId(externalId: string | number, source: 'imdb_id' | 'tvdb_id'): Promise<{ id: number; mediaType: MediaType; posterPath?: string | null } | null> {
   try {
     const { data } = await api.get(`/find/${externalId}`, {
       params: { external_source: source }
@@ -449,12 +459,14 @@ export async function findByExternalId(externalId: string | number, source: 'imd
 
     // Check TV results first (for TVDB)
     if (data.tv_results && data.tv_results.length > 0) {
-      return { id: data.tv_results[0].id, mediaType: 'tv' }
+      const result = data.tv_results[0]
+      return { id: result.id, mediaType: 'tv', posterPath: result.poster_path }
     }
 
     // Check movie results
     if (data.movie_results && data.movie_results.length > 0) {
-      return { id: data.movie_results[0].id, mediaType: 'movie' }
+      const result = data.movie_results[0]
+      return { id: result.id, mediaType: 'movie', posterPath: result.poster_path }
     }
 
     return null

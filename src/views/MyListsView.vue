@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useListsStore } from '@/stores/listsStore'
 import { libraryService, type RadarrMovie, type SonarrSeries } from '@/services/libraryService'
-import { findByExternalId, getImageUrl } from '@/services/tmdbService'
+import { findByExternalId, getImageUrl, getPosterPath } from '@/services/tmdbService'
 import ProgressSpinner from 'primevue/progressspinner'
 
 const router = useRouter()
@@ -31,6 +31,9 @@ const fetchLibrary = async () => {
 
     libraryMovies.value = movies
     librarySeries.value = series
+
+    // Fetch TMDB posters for library items
+    fetchTmdbPosters()
   } catch (error) {
     console.error('Error fetching library:', error)
   } finally {
@@ -40,25 +43,55 @@ const fetchLibrary = async () => {
 
 const totalLibraryItems = computed(() => libraryMovies.value.length + librarySeries.value.length)
 
-const RADARR_URL = 'http://localhost:7878'
-const SONARR_URL = 'http://localhost:8989'
+// Cache for TMDB poster paths
+const movieTmdbPosters = ref<Map<number, string>>(new Map())
+const seriesTmdbPosters = ref<Map<number, string>>(new Map())
 
-const getRadarrPoster = (movie: RadarrMovie) => {
-  const poster = movie.images.find(img => img.coverType === 'poster')
-  if (!poster?.url) return ''
-  if (poster.url.startsWith('/')) {
-    return `${RADARR_URL}${poster.url}`
-  }
-  return poster.url
+// Fetch TMDB posters for all library items
+const fetchTmdbPosters = async () => {
+  // Fetch movie posters
+  const moviePromises = libraryMovies.value.map(async (movie) => {
+    try {
+      const posterPath = await getPosterPath('movie', movie.tmdbId)
+      if (posterPath) {
+        movieTmdbPosters.value.set(movie.id, posterPath)
+      }
+    } catch (error) {
+      // Silently fail - will show placeholder
+    }
+  })
+
+  // Fetch series posters
+  const seriesPromises = librarySeries.value.map(async (series) => {
+    try {
+      const result = await findByExternalId(series.tvdbId, 'tvdb_id')
+      if (result?.posterPath) {
+        seriesTmdbPosters.value.set(series.id, result.posterPath)
+      }
+    } catch (error) {
+      // Silently fail - will show placeholder
+    }
+  })
+
+  await Promise.all([...moviePromises, ...seriesPromises])
 }
 
-const getSonarrPoster = (series: SonarrSeries) => {
-  const poster = series.images.find(img => img.coverType === 'poster')
-  if (!poster?.url) return ''
-  if (poster.url.startsWith('/')) {
-    return `${SONARR_URL}${poster.url}`
+// Get poster for Radarr movie using cached TMDB data
+const getMoviePoster = (movie: RadarrMovie) => {
+  const posterPath = movieTmdbPosters.value.get(movie.id)
+  if (posterPath) {
+    return getImageUrl(posterPath, 'w300')
   }
-  return poster.url
+  return ''
+}
+
+// Get poster for Sonarr series using cached TMDB data
+const getSeriesPoster = (series: SonarrSeries) => {
+  const posterPath = seriesTmdbPosters.value.get(series.id)
+  if (posterPath) {
+    return getImageUrl(posterPath, 'w300')
+  }
+  return ''
 }
 
 const goToMovie = (tmdbId: number) => {
@@ -168,8 +201,8 @@ onMounted(() => {
             >
               <div class="relative aspect-[2/3] rounded-md sm:rounded-lg overflow-hidden bg-zinc-800 mb-1.5 sm:mb-2">
                 <img
-                  v-if="getRadarrPoster(movie)"
-                  :src="getRadarrPoster(movie)"
+                  v-if="getMoviePoster(movie)"
+                  :src="getMoviePoster(movie)"
                   :alt="movie.title"
                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
@@ -205,8 +238,8 @@ onMounted(() => {
             >
               <div class="relative aspect-[2/3] rounded-md sm:rounded-lg overflow-hidden bg-zinc-800 mb-1.5 sm:mb-2">
                 <img
-                  v-if="getSonarrPoster(series)"
-                  :src="getSonarrPoster(series)"
+                  v-if="getSeriesPoster(series)"
+                  :src="getSeriesPoster(series)"
                   :alt="series.title"
                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
