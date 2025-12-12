@@ -1,0 +1,32 @@
+version: "3.8"
+
+# =============================================================================
+# WATCHTOWER - AUTO-UPDATE
+# =============================================================================
+# Automatically pulls new Docker images and restarts containers
+#
+# Prerequisites:
+#   Docker must be logged into ghcr.io for private images
+#
+# Usage:
+#   docker-compose -f docker-compose.watchtower.yml up -d
+# =============================================================================
+
+services:
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_LABEL_ENABLE=true
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # For private GitHub Container Registry
+      - /root/.docker/config.json:/config.json:ro
+    restart: unless-stopped
+
+networks:
+  default:
+    name: my-cinema-network

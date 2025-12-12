@@ -1,0 +1,31 @@
+version: "3.8"
+
+# =============================================================================
+# RADARR STANDALONE
+# =============================================================================
+# Movie manager - deploy this after Prowlarr
+#
+# Usage:
+#   docker-compose -f docker-compose.radarr.yml up -d
+#
+# Access: http://NAS_IP:7878
+# =============================================================================
+
+services:
+  radarr:
+    image: linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-Europe/Bucharest}
+    volumes:
+      - /volume2/docker/radarr:/config
+      - /volume1/data:/data
+    ports:
+      - "7878:7878"
+    restart: unless-stopped
+
+networks:
+  default:
+    name: my-cinema-network

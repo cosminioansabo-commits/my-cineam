@@ -17,8 +17,8 @@ const toggleSidebar = () => {
     <AppHeader @toggle-sidebar="toggleSidebar" />
     <AppSidebar v-model:visible="sidebarVisible" />
 
-    <main class="pt-20 min-h-screen">
-      <div class="max-w-[1920px] mx-auto px-6 sm:px-8 lg:px-12 xl:px-16 py-8">
+    <main class="pt-16 sm:pt-20 min-h-screen">
+      <div class="max-w-[1920px] mx-auto px-3 sm:px-6 lg:px-10 xl:px-14 py-4 sm:py-6">
         <RouterView />
       </div>
     </main>

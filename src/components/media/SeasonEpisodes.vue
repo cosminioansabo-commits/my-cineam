@@ -165,7 +165,7 @@ const isEpisodeAired = (airDate: string | null): boolean => {
                     <i class="pi pi-video text-2xl text-gray-600"></i>
                   </div>
                   <!-- Episode number badge -->
-                  <div class="absolute bottom-1 left-1 bg-black/80 px-1.5 py-0.5 rounded text-xs font-medium">
+                  <div class="absolute bottom-1 left-1 bg-black/90 px-2 py-1 rounded text-xs font-bold text-white shadow-lg">
                     E{{ episode.episodeNumber }}
                   </div>
                 </div>
@@ -233,6 +233,11 @@ const isEpisodeAired = (airDate: string | null): boolean => {
   background-color: transparent;
   border: none;
   padding: 1rem;
+  transition: background-color 0.2s ease;
+}
+
+.seasons-accordion :deep(.p-accordionheader:hover) {
+  background-color: rgb(39 39 42 / 0.5);
 }
 
 .seasons-accordion :deep(.p-accordionheader-toggle-icon) {

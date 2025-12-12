@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { libraryService, type CalendarEpisode, type SonarrSeries } from '@/services/libraryService'
-import { findByExternalId } from '@/services/tmdbService'
+import { findTVByExternalId, getImageUrl } from '@/services/tmdbService'
 import Button from 'primevue/button'
 import ProgressSpinner from 'primevue/progressspinner'
 import SelectButton from 'primevue/selectbutton'
@@ -25,13 +25,35 @@ const showTorrentModal = ref(false)
 const torrentSearchQuery = ref('')
 const currentSeries = ref<SonarrSeries | null>(null)
 
-const SONARR_URL = 'http://localhost:8989'
+// Cache for TMDB data (keyed by TVDB ID)
+const tmdbCache = ref<Map<number, { posterPath: string | null; tmdbId: number }>>(new Map())
+
+const fetchTmdbDataForSeries = async (tvdbIds: number[]) => {
+  const uniqueIds = [...new Set(tvdbIds)].filter(id => !tmdbCache.value.has(id))
+
+  await Promise.all(uniqueIds.map(async (tvdbId) => {
+    const result = await findTVByExternalId(tvdbId, 'tvdb_id')
+    if (result) {
+      tmdbCache.value.set(tvdbId, {
+        posterPath: result.posterPath,
+        tmdbId: result.id
+      })
+    }
+  }))
+}
 
 const fetchCalendar = async () => {
   isLoading.value = true
   error.value = null
   try {
     episodes.value = await libraryService.getUpcomingEpisodes(selectedDays.value)
+
+    // Fetch TMDB data for all series
+    const tvdbIds = episodes.value
+      .map(ep => ep.series?.tvdbId)
+      .filter((id): id is number => id !== undefined)
+
+    await fetchTmdbDataForSeries(tvdbIds)
   } catch (err) {
     console.error('Error fetching calendar:', err)
     error.value = 'Failed to load upcoming episodes. Make sure Sonarr is connected.'
@@ -90,19 +112,18 @@ const formatDate = (dateStr: string): string => {
 
 const getSeriesPoster = (series: SonarrSeries | null): string => {
   if (!series) return ''
-  const poster = series.images.find(img => img.coverType === 'poster')
-  if (!poster?.url) return ''
-  if (poster.url.startsWith('/')) {
-    return `${SONARR_URL}${poster.url}`
+  const cached = tmdbCache.value.get(series.tvdbId)
+  if (cached?.posterPath) {
+    return getImageUrl(cached.posterPath, 'w200')
   }
-  return poster.url
+  return ''
 }
 
-const goToSeries = async (episode: CalendarEpisode) => {
+const goToSeries = (episode: CalendarEpisode) => {
   if (!episode.series) return
-  const result = await findByExternalId(episode.series.tvdbId, 'tvdb_id')
-  if (result) {
-    router.push(`/media/tv/${result.id}`)
+  const cached = tmdbCache.value.get(episode.series.tvdbId)
+  if (cached) {
+    router.push(`/media/tv/${cached.tmdbId}`)
   }
 }
 

@@ -101,11 +101,11 @@ const seedsClass = computed(() => {
 </script>
 
 <template>
-  <div class="group bg-[#1e1e1e] hover:bg-[#252525] rounded-lg p-4 transition-all duration-200 border border-transparent hover:border-[#333]">
-    <div class="flex items-start gap-4">
+  <div class="group bg-[#1e1e1e] hover:bg-[#252525] rounded-lg p-3 sm:p-4 transition-all duration-200 border border-transparent hover:border-[#333]">
+    <div class="flex items-start gap-2.5 sm:gap-4">
       <!-- Quality Badge -->
       <div
-        class="flex-shrink-0 w-14 h-14 rounded-lg flex items-center justify-center font-bold text-xs border"
+        class="flex-shrink-0 w-11 h-11 sm:w-14 sm:h-14 rounded-lg flex items-center justify-center font-bold text-[10px] sm:text-xs border"
         :class="qualityClass"
       >
         <div class="text-center">
@@ -117,57 +117,57 @@ const seedsClass = computed(() => {
       <!-- Info -->
       <div class="flex-1 min-w-0">
         <!-- Title -->
-        <h4 class="text-sm font-semibold text-white leading-tight">
+        <h4 class="text-xs sm:text-sm font-semibold text-white leading-tight line-clamp-2">
           {{ parsedInfo.title }}
         </h4>
 
         <!-- Season/Episode Tags -->
-        <div v-if="parsedInfo.season || parsedInfo.isComplete" class="flex flex-wrap gap-1.5 mt-1.5">
+        <div v-if="parsedInfo.season || parsedInfo.isComplete" class="flex flex-wrap gap-1 sm:gap-1.5 mt-1 sm:mt-1.5">
           <Tag
             v-if="parsedInfo.isComplete"
             value="Complete Series"
             severity="success"
-            class="!text-[10px] !px-2 !py-0.5"
+            class="!text-[9px] sm:!text-[10px] !px-1.5 sm:!px-2 !py-0.5"
           />
           <Tag
             v-else-if="parsedInfo.season"
             :value="`S${String(parsedInfo.season).padStart(2, '0')}`"
             severity="info"
-            class="!text-[10px] !px-2 !py-0.5"
+            class="!text-[9px] sm:!text-[10px] !px-1.5 sm:!px-2 !py-0.5"
           />
           <Tag
             v-if="parsedInfo.episode"
             :value="`E${String(parsedInfo.episode).padStart(2, '0')}`"
             severity="secondary"
-            class="!text-[10px] !px-2 !py-0.5"
+            class="!text-[9px] sm:!text-[10px] !px-1.5 sm:!px-2 !py-0.5"
           />
           <Tag
             v-if="parsedInfo.formatInfo"
             :value="parsedInfo.formatInfo"
             severity="contrast"
-            class="!text-[10px] !px-2 !py-0.5"
+            class="!text-[9px] sm:!text-[10px] !px-1.5 sm:!px-2 !py-0.5"
           />
         </div>
 
-        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs mt-2">
+        <div class="flex flex-wrap items-center gap-x-2.5 sm:gap-x-4 gap-y-1 text-[10px] sm:text-xs mt-1.5 sm:mt-2">
           <!-- Source -->
           <span class="text-gray-500">
-            <i class="pi pi-server mr-1"></i>{{ indexer }}
+            <i class="pi pi-server mr-0.5 sm:mr-1 text-[9px] sm:text-xs"></i>{{ indexer }}
           </span>
 
           <!-- Size -->
           <span class="text-gray-400">
-            <i class="pi pi-database mr-1"></i>{{ torrent.size }}
+            <i class="pi pi-database mr-0.5 sm:mr-1 text-[9px] sm:text-xs"></i>{{ torrent.size }}
           </span>
 
           <!-- Seeds -->
           <span :class="seedsClass">
-            <i class="pi pi-arrow-up mr-1"></i>{{ torrent.seeds }}
+            <i class="pi pi-arrow-up mr-0.5 sm:mr-1 text-[9px] sm:text-xs"></i>{{ torrent.seeds }}
           </span>
 
           <!-- Peers -->
           <span class="text-gray-500">
-            <i class="pi pi-arrow-down mr-1"></i>{{ torrent.peers }}
+            <i class="pi pi-arrow-down mr-0.5 sm:mr-1 text-[9px] sm:text-xs"></i>{{ torrent.peers }}
           </span>
         </div>
       </div>
@@ -181,7 +181,7 @@ const seedsClass = computed(() => {
           :loading="loading"
           @click="emit('download', torrent)"
           aria-label="Download"
-          class="!w-10 !h-10"
+          class="!w-8 !h-8 sm:!w-10 sm:!h-10"
         />
       </div>
     </div>

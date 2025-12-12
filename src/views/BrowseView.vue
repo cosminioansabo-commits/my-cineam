@@ -1,27 +1,47 @@
 <script setup lang="ts">
 import { onMounted, watch, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useMediaStore } from '@/stores/mediaStore'
 import { useFiltersStore } from '@/stores/filtersStore'
 import MediaGrid from '@/components/media/MediaGrid.vue'
 import MediaFilters from '@/components/media/MediaFilters.vue'
+import SearchBar from '@/components/common/SearchBar.vue'
 import Button from 'primevue/button'
 import Drawer from 'primevue/drawer'
 
+const router = useRouter()
 const mediaStore = useMediaStore()
 const filtersStore = useFiltersStore()
 
 const showMobileFilters = ref(false)
+const searchQuery = ref('')
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+const handleSearch = (query: string) => {
+  if (query.trim()) {
+    router.push({ name: 'search', query: { q: query.trim() } })
+  }
+}
+
+const debouncedBrowse = () => {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+  }
+  debounceTimer = setTimeout(() => {
+    mediaStore.browse()
+  }, 400)
+}
 
 onMounted(async () => {
   await filtersStore.loadGenres()
   mediaStore.browse()
 })
 
-// Watch for filter changes and refetch
+// Watch for filter changes and refetch with debounce
 watch(
   () => filtersStore.filters,
   () => {
-    mediaStore.browse()
+    debouncedBrowse()
   },
   { deep: true }
 )
@@ -36,7 +56,7 @@ const hasMore = () => {
 </script>
 
 <template>
-  <div class="flex flex-col lg:flex-row gap-6">
+  <div class="flex flex-col lg:flex-row gap-4 sm:gap-6">
     <!-- Desktop Filters Sidebar -->
     <aside class="hidden lg:block w-80 flex-shrink-0">
       <div class="sticky top-28 bg-zinc-900/80 backdrop-blur-md rounded-2xl p-6 border border-zinc-800/50 shadow-xl shadow-black/20">
@@ -45,11 +65,11 @@ const hasMore = () => {
     </aside>
 
     <!-- Mobile Filter Button -->
-    <div class="lg:hidden fixed bottom-6 right-6 z-40">
+    <div class="lg:hidden fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40">
       <Button
         icon="pi pi-filter"
         rounded
-        size="large"
+        class="!w-12 !h-12 sm:!w-14 sm:!h-14"
         :badge="filtersStore.activeFilterCount > 0 ? String(filtersStore.activeFilterCount) : undefined"
         badgeSeverity="contrast"
         @click="showMobileFilters = true"
@@ -63,29 +83,30 @@ const hasMore = () => {
       :style="{ height: '80vh' }"
       :pt="{
         root: { class: 'bg-zinc-900' },
-        header: { class: 'bg-zinc-900 border-b border-zinc-700' },
-        content: { class: 'bg-zinc-900 p-4' },
+        header: { class: 'bg-zinc-900 border-b border-zinc-700 px-4 py-3' },
+        content: { class: 'bg-zinc-900 p-3 sm:p-4' },
       }"
     >
       <template #header>
-        <div class="flex items-center justify-between w-full">
-          <h2 class="text-lg font-semibold">Filters</h2>
-          <Button
-            label="Apply"
-            size="small"
-            @click="showMobileFilters = false"
-          />
-        </div>
+        <h2 class="text-base sm:text-lg font-semibold">Filters</h2>
       </template>
       <MediaFilters />
     </Drawer>
 
     <!-- Main Content -->
     <main class="flex-1 min-w-0">
-      <div class="flex items-center justify-between mb-6">
+      <!-- Search Bar -->
+      <div class="mb-6">
+        <SearchBar
+          v-model="searchQuery"
+          @search="handleSearch"
+        />
+      </div>
+
+      <div class="flex items-center justify-between mb-4 sm:mb-6">
         <div>
-          <h1 class="text-2xl font-bold">Browse</h1>
-          <p class="text-gray-400 text-sm mt-1">
+          <h1 class="text-xl sm:text-2xl font-bold">Browse</h1>
+          <p class="text-gray-400 text-xs sm:text-sm mt-0.5 sm:mt-1">
             {{ mediaStore.totalResults.toLocaleString() }} results
           </p>
         </div>
@@ -99,13 +120,14 @@ const hasMore = () => {
       <!-- Load More -->
       <div
         v-if="hasMore() && !mediaStore.isLoadingBrowse"
-        class="flex justify-center mt-8"
+        class="flex justify-center mt-6 sm:mt-8"
       >
         <Button
           label="Load More"
           icon="pi pi-arrow-down"
           severity="secondary"
           outlined
+          class="!text-xs sm:!text-sm"
           @click="loadMore"
         />
       </div>
@@ -113,9 +135,9 @@ const hasMore = () => {
       <!-- Loading indicator for load more -->
       <div
         v-if="mediaStore.isLoadingBrowse && mediaStore.browseResults.length > 0"
-        class="flex justify-center mt-8"
+        class="flex justify-center mt-6 sm:mt-8"
       >
-        <i class="pi pi-spin pi-spinner text-2xl text-purple-500"></i>
+        <i class="pi pi-spin pi-spinner text-xl sm:text-2xl text-purple-500"></i>
       </div>
     </main>
   </div>

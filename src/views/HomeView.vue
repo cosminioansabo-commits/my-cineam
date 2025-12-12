@@ -49,13 +49,13 @@ const heroRating = computed(() => {
   return Math.round(featuredItem.value.voteAverage * 10)
 })
 
-const isInWatchlist = computed(() => {
+const isInMyList = computed(() => {
   if (!featuredItem.value) return false
-  return listsStore.isInList('want-to-watch', featuredItem.value.id, featuredItem.value.mediaType)
+  return listsStore.isInList('my-list', featuredItem.value.id, featuredItem.value.mediaType)
 })
 
 const myListItems = computed(() => {
-  const items = listsStore.getListById('want-to-watch')?.items || []
+  const items = listsStore.getListById('my-list')?.items || []
   return items.map(item => ({
     id: item.mediaId,
     title: item.title,
@@ -72,13 +72,13 @@ const myListItems = computed(() => {
 })
 
 // Actions
-const toggleWatchlist = () => {
+const toggleMyList = () => {
   if (!featuredItem.value) return
 
-  if (isInWatchlist.value) {
-    listsStore.removeFromList('want-to-watch', featuredItem.value.id, featuredItem.value.mediaType)
+  if (isInMyList.value) {
+    listsStore.removeFromList('my-list', featuredItem.value.id, featuredItem.value.mediaType)
   } else {
-    listsStore.addToList('want-to-watch', featuredItem.value)
+    listsStore.addToList('my-list', featuredItem.value)
   }
 }
 
@@ -129,9 +129,9 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="-mx-4 sm:-mx-6 lg:-mx-8 -mt-6">
+  <div class="-mx-3 sm:-mx-6 lg:-mx-10 -mt-4 sm:-mt-6">
     <!-- Hero Section -->
-    <section class="relative h-[70vh] min-h-[500px] max-h-[800px] overflow-hidden">
+    <section class="relative h-[55vh] sm:h-[65vh] md:h-[70vh] min-h-[380px] sm:min-h-[450px] md:min-h-[500px] max-h-[800px] overflow-hidden">
       <!-- Background -->
       <div class="absolute inset-0">
         <template v-if="isLoadingHero">
@@ -153,55 +153,53 @@ onMounted(async () => {
 
       <!-- Content -->
       <div class="relative h-full flex items-center">
-        <div class="w-full max-w-3xl px-4 md:px-12 mt-20">
+        <div class="w-full max-w-3xl px-3 sm:px-4 md:px-10 mt-14 sm:mt-20">
           <template v-if="isLoadingHero">
-            <Skeleton width="60%" height="3rem" class="mb-4" />
-            <Skeleton width="40%" height="1.5rem" class="mb-4" />
-            <Skeleton width="100%" height="4rem" class="mb-6" />
-            <div class="flex gap-3">
-              <Skeleton width="120px" height="48px" />
-              <Skeleton width="140px" height="48px" />
+            <Skeleton width="60%" height="2rem" class="mb-3 sm:mb-4" />
+            <Skeleton width="40%" height="1.25rem" class="mb-3 sm:mb-4" />
+            <Skeleton width="100%" height="3rem" class="mb-4 sm:mb-6" />
+            <div class="flex gap-2 sm:gap-3">
+              <Skeleton width="100px" height="36px" class="sm:!w-[120px] sm:!h-12" />
+              <Skeleton width="100px" height="36px" class="sm:!w-[140px] sm:!h-12" />
             </div>
           </template>
 
           <template v-else-if="featuredItem">
             <!-- Title -->
-            <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold text-shadow mb-4">
+            <h1 class="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-shadow mb-2 sm:mb-4">
               {{ featuredItem.title }}
             </h1>
 
             <!-- Meta -->
-            <div class="flex items-center gap-4 mb-4 text-sm">
+            <div class="flex items-center gap-2 sm:gap-4 mb-3 sm:mb-4 text-xs sm:text-sm">
               <span class="text-green-500 font-bold">{{ heroRating }}% Match</span>
               <span class="text-gray-300">{{ heroYear }}</span>
-              <span class="px-1.5 border border-gray-500 text-gray-400 text-xs">HD</span>
-              <span class="px-2 py-0.5 bg-[#e50914] text-white text-xs font-medium rounded">
+              <span class="px-1 sm:px-1.5 border border-gray-500 text-gray-400 text-[10px] sm:text-xs">HD</span>
+              <span class="px-1.5 sm:px-2 py-0.5 bg-[#e50914] text-white text-[10px] sm:text-xs font-medium rounded">
                 {{ featuredItem.mediaType === 'movie' ? 'Movie' : 'Series' }}
               </span>
             </div>
 
             <!-- Overview -->
-            <p class="text-base md:text-lg text-gray-200 line-clamp-3 mb-6 max-w-2xl text-shadow">
+            <p class="text-sm sm:text-base md:text-lg text-gray-200 line-clamp-2 sm:line-clamp-3 mb-4 sm:mb-6 max-w-2xl text-shadow">
               {{ featuredItem.overview }}
             </p>
 
             <!-- Actions -->
-            <div class="flex flex-wrap gap-3">
+            <div class="flex flex-wrap gap-2 sm:gap-3">
               <RouterLink :to="`/media/${featuredItem.mediaType}/${featuredItem.id}`">
                 <Button
                   label="More Info"
                   icon="pi pi-info-circle"
-                  size="large"
-                  class="!bg-white/30 !border-0 hover:!bg-white/20 !text-white font-semibold"
+                  class="!bg-white/30 !border-0 hover:!bg-white/20 !text-white font-semibold !text-xs sm:!text-sm !py-2 sm:!py-2.5 !px-3 sm:!px-4"
                 />
               </RouterLink>
               <Button
-                :label="isInWatchlist ? 'In My List' : 'My List'"
-                :icon="isInWatchlist ? 'pi pi-check' : 'pi pi-plus'"
-                size="large"
+                :label="isInMyList ? 'In My List' : 'My List'"
+                :icon="isInMyList ? 'pi pi-check' : 'pi pi-plus'"
                 severity="secondary"
-                class="font-semibold"
-                @click="toggleWatchlist"
+                class="font-semibold !text-xs sm:!text-sm !py-2 sm:!py-2.5 !px-3 sm:!px-4"
+                @click="toggleMyList"
               />
             </div>
           </template>
@@ -210,13 +208,13 @@ onMounted(async () => {
     </section>
 
     <!-- Carousels -->
-    <div class="relative z-10 -mt-24 pb-12 space-y-2">
+    <div class="relative z-10 -mt-16 sm:-mt-24 pb-8 sm:pb-12 space-y-1 sm:space-y-2">
       <!-- My List (if has items) -->
       <MediaCarousel
         v-if="myListItems.length > 0"
         title="My List"
         :items="myListItems"
-        see-all-link="/list/want-to-watch"
+        see-all-link="/list/my-list"
       />
 
       <!-- Trending Now -->

@@ -45,6 +45,12 @@ const router = createRouter({
       name: 'calendar',
       component: () => import('@/views/CalendarView.vue'),
     },
+    {
+      path: '/actor/:id',
+      name: 'actor',
+      component: () => import('@/views/ActorView.vue'),
+      props: true,
+    },
   ],
   scrollBehavior(_to, _from, savedPosition) {
     if (savedPosition) {

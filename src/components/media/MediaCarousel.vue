@@ -18,9 +18,10 @@ const props = withDefaults(defineProps<{
 const trackRef = ref<HTMLElement>()
 const canScrollLeft = ref(false)
 const canScrollRight = ref(true)
+const isMobile = ref(false)
 
 const cardStyle = computed(() => ({
-  width: `${props.cardWidth}px`,
+  width: isMobile.value ? '130px' : `${props.cardWidth}px`,
 }))
 
 const updateScrollButtons = () => {
@@ -50,6 +51,12 @@ onMounted(() => {
     trackRef.value.addEventListener('scroll', updateScrollButtons)
     updateScrollButtons()
   }
+  // Check for mobile
+  const checkMobile = () => {
+    isMobile.value = window.innerWidth < 640
+  }
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
 })
 
 onUnmounted(() => {
@@ -60,18 +67,18 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section class="carousel-section mb-10">
+  <section class="carousel-section mb-6 sm:mb-10">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-4 px-4 md:px-12">
+    <div class="flex items-center justify-between mb-2 sm:mb-4 px-3 sm:px-4 md:px-10">
       <component
         :is="seeAllLink ? RouterLink : 'h2'"
         :to="seeAllLink"
-        class="row-title group flex items-center gap-3"
+        class="row-title text-base sm:text-lg md:text-xl group flex items-center gap-2 sm:gap-3"
       >
         {{ title }}
-        <span v-if="seeAllLink" class="text-sm font-normal text-[#e50914] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+        <span v-if="seeAllLink" class="text-xs sm:text-sm font-normal text-[#e50914] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
           See all
-          <i class="pi pi-chevron-right text-xs"></i>
+          <i class="pi pi-chevron-right text-[10px] sm:text-xs"></i>
         </span>
       </component>
     </div>
@@ -81,17 +88,17 @@ onUnmounted(() => {
       <!-- Left Arrow -->
       <button
         v-show="canScrollLeft && !loading"
-        class="carousel-btn carousel-btn-left"
+        class="carousel-btn carousel-btn-left hidden sm:flex"
         @click="scroll('left')"
         aria-label="Scroll left"
       >
-        <i class="pi pi-chevron-left"></i>
+        <i class="pi pi-chevron-left text-base sm:text-lg"></i>
       </button>
 
       <!-- Track -->
       <div
         ref="trackRef"
-        class="carousel-track px-4 md:px-12"
+        class="carousel-track px-3 sm:px-4 md:px-10"
       >
         <!-- Loading skeletons with better styling -->
         <template v-if="loading">
@@ -123,11 +130,11 @@ onUnmounted(() => {
       <!-- Right Arrow -->
       <button
         v-show="canScrollRight && !loading"
-        class="carousel-btn carousel-btn-right"
+        class="carousel-btn carousel-btn-right hidden sm:flex"
         @click="scroll('right')"
         aria-label="Scroll right"
       >
-        <i class="pi pi-chevron-right"></i>
+        <i class="pi pi-chevron-right text-base sm:text-lg"></i>
       </button>
     </div>
   </section>

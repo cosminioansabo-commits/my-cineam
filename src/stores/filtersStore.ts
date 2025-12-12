@@ -13,6 +13,7 @@ const DEFAULT_FILTERS: FilterOptions = {
   yearRange: [1900, currentYear],
   ratingRange: [0, 10],
   sortBy: 'popularity.desc',
+  animeOnly: false,
 }
 
 export const useFiltersStore = defineStore('filters', () => {
@@ -32,7 +33,8 @@ export const useFiltersStore = defineStore('filters', () => {
       filters.value.yearRange[1] !== currentYear ||
       filters.value.ratingRange[0] !== 0 ||
       filters.value.ratingRange[1] !== 10 ||
-      filters.value.sortBy !== 'popularity.desc'
+      filters.value.sortBy !== 'popularity.desc' ||
+      filters.value.animeOnly
     )
   })
 
@@ -44,6 +46,7 @@ export const useFiltersStore = defineStore('filters', () => {
     if (filters.value.yearRange[0] !== 1900 || filters.value.yearRange[1] !== currentYear) count++
     if (filters.value.ratingRange[0] !== 0 || filters.value.ratingRange[1] !== 10) count++
     if (filters.value.sortBy !== 'popularity.desc') count++
+    if (filters.value.animeOnly) count++
     return count
   })
 
@@ -129,6 +132,10 @@ export const useFiltersStore = defineStore('filters', () => {
     filters.value.sortBy = sortBy
   }
 
+  function setAnimeOnly(value: boolean) {
+    filters.value.animeOnly = value
+  }
+
   function resetFilters() {
     filters.value = { ...DEFAULT_FILTERS }
   }
@@ -152,6 +159,9 @@ export const useFiltersStore = defineStore('filters', () => {
         break
       case 'sortBy':
         filters.value.sortBy = 'popularity.desc'
+        break
+      case 'animeOnly':
+        filters.value.animeOnly = false
         break
     }
   }
@@ -178,6 +188,7 @@ export const useFiltersStore = defineStore('filters', () => {
     setYearRange,
     setRatingRange,
     setSortBy,
+    setAnimeOnly,
     resetFilters,
     resetFilter,
   }

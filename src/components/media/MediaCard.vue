@@ -48,18 +48,18 @@ const matchBgColor = computed(() => {
   return 'bg-red-500/20'
 })
 
-const isInWatchlist = computed(() => {
-  return listsStore.isInList('want-to-watch', props.media.id, props.media.mediaType)
+const isInMyList = computed(() => {
+  return listsStore.isInList('my-list', props.media.id, props.media.mediaType)
 })
 
-const toggleWatchlist = (e: Event) => {
+const toggleMyList = (e: Event) => {
   e.preventDefault()
   e.stopPropagation()
 
-  if (isInWatchlist.value) {
-    listsStore.removeFromList('want-to-watch', props.media.id, props.media.mediaType)
+  if (isInMyList.value) {
+    listsStore.removeFromList('my-list', props.media.id, props.media.mediaType)
   } else {
-    listsStore.addToList('want-to-watch', props.media)
+    listsStore.addToList('my-list', props.media)
   }
 }
 
@@ -87,7 +87,7 @@ const onImageLoad = () => {
   <RouterLink
     v-if="variant === 'compact'"
     :to="`/media/${media.mediaType}/${media.id}`"
-    class="media-card block rounded-xl overflow-hidden bg-[#181818] group shadow-lg shadow-black/30 border border-zinc-800/50"
+    class="media-card block rounded-lg sm:rounded-xl overflow-hidden bg-[#181818] group shadow-lg shadow-black/30 border border-zinc-800/50"
   >
     <div class="aspect-[2/3] relative overflow-hidden">
       <!-- Skeleton placeholder -->
@@ -108,24 +108,24 @@ const onImageLoad = () => {
       <!-- Hover overlay -->
       <div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300">
         <!-- Bottom info on hover -->
-        <div class="absolute bottom-0 left-0 right-0 p-4">
-          <h3 class="font-semibold text-sm text-white line-clamp-2 mb-2">
+        <div class="absolute bottom-0 left-0 right-0 p-2.5 sm:p-4">
+          <h3 class="font-semibold text-xs sm:text-sm text-white line-clamp-2 mb-1.5 sm:mb-2">
             {{ media.title }}
           </h3>
-          <div class="flex items-center gap-2 text-xs">
-            <span :class="[matchColor, matchBgColor]" class="font-bold px-2 py-0.5 rounded">{{ ratingPercent }}%</span>
+          <div class="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs">
+            <span :class="[matchColor, matchBgColor]" class="font-bold px-1.5 sm:px-2 py-0.5 rounded">{{ ratingPercent }}%</span>
             <span class="text-gray-400">{{ year }}</span>
           </div>
         </div>
 
         <!-- Action buttons -->
-        <div class="absolute top-3 right-3 flex gap-2">
+        <div class="absolute top-2 right-2 sm:top-3 sm:right-3 flex gap-1.5 sm:gap-2">
           <button
-            class="w-9 h-9 rounded-full bg-black/80 backdrop-blur-sm border border-zinc-600 flex items-center justify-center hover:border-white hover:scale-110 transition-all duration-200"
-            @click="toggleWatchlist"
-            :title="isInWatchlist ? 'In Watchlist' : 'Add to Watchlist'"
+            class="w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-black/80 backdrop-blur-sm border border-zinc-600 flex items-center justify-center hover:border-white hover:scale-110 transition-all duration-200"
+            @click="toggleMyList"
+            :title="isInMyList ? 'In My List' : 'Add to My List'"
           >
-            <i :class="['pi text-sm', isInWatchlist ? 'pi-check text-green-500' : 'pi-plus text-white']"></i>
+            <i :class="['pi text-xs sm:text-sm', isInMyList ? 'pi-check text-green-500' : 'pi-plus text-white']"></i>
           </button>
         </div>
       </div>
@@ -139,9 +139,9 @@ const onImageLoad = () => {
       class="media-card-expand group block"
     >
       <!-- Card content container -->
-      <div class="card-content rounded-xl overflow-hidden bg-[#181818] shadow-lg shadow-black/30 border border-zinc-800/50">
+      <div class="card-content rounded-lg sm:rounded-xl overflow-hidden bg-[#181818] shadow-lg shadow-black/30 border border-zinc-800/50">
         <!-- Poster -->
-        <div class="aspect-[2/3] relative overflow-hidden">
+        <div class="aspect-[2/3] relative overflow-hidden rounded-t-lg sm:rounded-t-xl">
           <!-- Skeleton placeholder -->
           <div
             v-if="!imageLoaded"
@@ -151,39 +151,39 @@ const onImageLoad = () => {
           <img
             :src="posterUrl"
             :alt="media.title"
-            class="w-full h-full object-cover"
+            class="w-full h-full object-cover rounded-t-lg sm:rounded-t-xl"
             :class="imageLoaded ? 'opacity-100' : 'opacity-0'"
             loading="lazy"
             @load="onImageLoad"
           />
 
           <!-- Always visible rating badge -->
-          <div class="absolute top-3 left-3 rating-badge rounded-lg px-2 py-1 flex items-center gap-1.5 backdrop-blur-md">
-            <i class="pi pi-star-fill text-[#f5c518] text-xs"></i>
-            <span class="text-white text-xs font-bold">{{ rating }}</span>
+          <div class="absolute top-2 left-2 sm:top-3 sm:left-3 rating-badge rounded-md sm:rounded-lg px-1.5 sm:px-2 py-0.5 sm:py-1 flex items-center gap-1 sm:gap-1.5 backdrop-blur-md">
+            <i class="pi pi-star-fill text-[#f5c518] text-[10px] sm:text-xs"></i>
+            <span class="text-white text-[10px] sm:text-xs font-bold">{{ rating }}</span>
           </div>
 
           <!-- Media type badge -->
-          <div class="absolute top-3 right-3 bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1 opacity-100 group-hover:opacity-0 transition-opacity">
-            <span class="text-[10px] font-medium text-gray-300 uppercase tracking-wide">{{ mediaTypeLabel }}</span>
+          <div class="absolute top-2 right-2 sm:top-3 sm:right-3 bg-black/60 backdrop-blur-sm rounded-md sm:rounded-lg px-1.5 sm:px-2 py-0.5 sm:py-1 opacity-100 group-hover:opacity-0 transition-opacity">
+            <span class="text-[8px] sm:text-[10px] font-medium text-gray-300 uppercase tracking-wide">{{ mediaTypeLabel }}</span>
           </div>
         </div>
 
         <!-- Default info below poster -->
-        <div class="p-4 default-info">
-          <h3 class="font-semibold text-sm text-[#e5e5e5] truncate">
+        <div class="p-2.5 sm:p-4 default-info">
+          <h3 class="font-semibold text-xs sm:text-sm text-[#e5e5e5] truncate">
             {{ media.title }}
           </h3>
-          <div class="flex items-center gap-2 mt-1.5">
-            <span class="text-xs text-gray-500">{{ year }}</span>
-            <span v-if="genreNames.length > 0" class="text-xs text-gray-600">•</span>
-            <span v-if="genreNames.length > 0" class="text-xs text-gray-500 truncate">{{ genreNames[0] }}</span>
+          <div class="flex items-center gap-1.5 sm:gap-2 mt-1 sm:mt-1.5">
+            <span class="text-[10px] sm:text-xs text-gray-500">{{ year }}</span>
+            <span v-if="genreNames.length > 0" class="text-[10px] sm:text-xs text-gray-600">•</span>
+            <span v-if="genreNames.length > 0" class="text-[10px] sm:text-xs text-gray-500 truncate">{{ genreNames[0] }}</span>
           </div>
         </div>
       </div>
 
       <!-- Expanded details panel (appears on hover) - outside card-content for absolute positioning -->
-      <div class="expanded-details">
+      <div class="expanded-details hidden sm:block">
         <!-- Action buttons -->
         <div class="flex items-center gap-2 mb-3">
           <button class="flex-1 h-10 rounded-lg bg-white flex items-center justify-center gap-2 hover:bg-white/90 transition-colors">
@@ -192,9 +192,9 @@ const onImageLoad = () => {
           </button>
           <button
             class="w-10 h-10 rounded-lg border-2 border-zinc-500 flex items-center justify-center hover:border-white transition-colors bg-zinc-800/80"
-            @click="toggleWatchlist"
+            @click="toggleMyList"
           >
-            <i :class="['pi text-sm', isInWatchlist ? 'pi-check text-green-500' : 'pi-plus text-white']"></i>
+            <i :class="['pi text-sm', isInMyList ? 'pi-check text-green-500' : 'pi-plus text-white']"></i>
           </button>
         </div>
 

@@ -15,6 +15,7 @@ const op = ref()
 const activeCount = computed(() => torrentsStore.activeDownloads.length)
 
 onMounted(() => {
+  torrentsStore.fetchDownloads()
   torrentsStore.connectWebSocket()
 })
 
@@ -33,7 +34,7 @@ function goToDownloads() {
 </script>
 
 <template>
-  <div class="download-manager">
+  <div class="download-manager relative">
     <Button
       icon="pi pi-download"
       text
@@ -41,34 +42,35 @@ function goToDownloads() {
       severity="secondary"
       @click="toggle"
       aria-label="Downloads"
-      class="relative"
+      class="!w-8 !h-8 sm:!w-10 sm:!h-10 !overflow-visible"
     >
       <template #icon>
-        <i class="pi pi-download"></i>
-        <Badge
-          v-if="activeCount > 0"
-          :value="activeCount"
-          severity="success"
-          class="absolute -top-1 -right-1"
-        />
+        <i class="pi pi-download text-base sm:text-lg text-gray-300 hover:text-white"></i>
       </template>
     </Button>
+    <Badge
+      v-if="activeCount > 0"
+      :value="activeCount"
+      severity="success"
+      class="absolute -top-1 -right-1 !text-[10px] sm:!text-xs !min-w-[18px] !h-[18px] !flex !items-center !justify-center pointer-events-none"
+    />
 
-    <OverlayPanel ref="op" :style="{ width: '400px' }">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-semibold text-white">Downloads</h3>
+    <OverlayPanel ref="op" class="!w-[calc(100vw-24px)] sm:!w-[400px]">
+      <div class="flex items-center justify-between mb-3 sm:mb-4">
+        <h3 class="text-base sm:text-lg font-semibold text-white">Downloads</h3>
         <Button
           label="View All"
           link
           size="small"
+          class="!text-xs sm:!text-sm"
           @click="goToDownloads"
         />
       </div>
 
       <!-- Connection status -->
-      <div class="flex items-center gap-2 mb-4 text-xs">
+      <div class="flex items-center gap-1.5 sm:gap-2 mb-3 sm:mb-4 text-[10px] sm:text-xs">
         <span
-          class="w-2 h-2 rounded-full"
+          class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full"
           :class="torrentsStore.wsConnected ? 'bg-green-500' : 'bg-red-500'"
         ></span>
         <span class="text-gray-400">
@@ -77,9 +79,9 @@ function goToDownloads() {
       </div>
 
       <!-- No downloads -->
-      <div v-if="torrentsStore.downloads.length === 0" class="text-center py-6">
-        <i class="pi pi-inbox text-3xl text-gray-500 mb-2"></i>
-        <p class="text-gray-400 text-sm">No downloads yet</p>
+      <div v-if="torrentsStore.downloads.length === 0" class="text-center py-4 sm:py-6">
+        <i class="pi pi-inbox text-2xl sm:text-3xl text-gray-500 mb-2"></i>
+        <p class="text-gray-400 text-xs sm:text-sm">No downloads yet</p>
       </div>
 
       <!-- Downloads list -->

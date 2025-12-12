@@ -1,0 +1,30 @@
+version: "3.8"
+
+# =============================================================================
+# PROWLARR STANDALONE
+# =============================================================================
+# Indexer manager - deploy this after qBittorrent
+#
+# Usage:
+#   docker-compose -f docker-compose.prowlarr.yml up -d
+#
+# Access: http://NAS_IP:9696
+# =============================================================================
+
+services:
+  prowlarr:
+    image: linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-Europe/Bucharest}
+    volumes:
+      - /volume2/docker/prowlarr:/config
+    ports:
+      - "9696:9696"
+    restart: unless-stopped
+
+networks:
+  default:
+    name: my-cinema-network

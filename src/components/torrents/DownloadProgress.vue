@@ -123,6 +123,10 @@ function formatEta(seconds?: number): string {
       :showValue="false"
       style="height: 6px"
       class="mb-2"
+      :pt="{
+        root: { class: 'bg-zinc-700 rounded-full overflow-hidden' },
+        value: { class: 'bg-green-500' }
+      }"
     />
 
     <!-- Stats -->

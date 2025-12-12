@@ -1,0 +1,57 @@
+version: "3.8"
+
+# =============================================================================
+# MY-CINEMA APP
+# =============================================================================
+# Frontend + Backend - deploy after all other services are configured
+#
+# Prerequisites:
+#   1. Login to GitHub Container Registry:
+#      echo "YOUR_GITHUB_TOKEN" | docker login ghcr.io -u YOUR_USERNAME --password-stdin
+#   2. Create .env file with all API keys
+#
+# Usage:
+#   docker-compose -f docker-compose.my-cinema.yml up -d
+#
+# Access: http://NAS_IP (port 80)
+# =============================================================================
+
+services:
+  my-cinema-frontend:
+    image: ghcr.io/${GITHUB_USERNAME}/my-cinema-frontend:latest
+    container_name: my-cinema-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - my-cinema-backend
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  my-cinema-backend:
+    image: ghcr.io/${GITHUB_USERNAME}/my-cinema-backend:latest
+    container_name: my-cinema-backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - CORS_ORIGIN=http://${NAS_IP}
+      - DOWNLOAD_PATH=/data/downloads
+      - PROWLARR_URL=http://prowlarr:9696
+      - PROWLARR_API_KEY=${PROWLARR_API_KEY}
+      - QBITTORRENT_URL=http://qbittorrent:8080
+      - QBITTORRENT_USERNAME=${QBITTORRENT_USERNAME}
+      - QBITTORRENT_PASSWORD=${QBITTORRENT_PASSWORD}
+      - RADARR_URL=http://radarr:7878
+      - RADARR_API_KEY=${RADARR_API_KEY}
+      - SONARR_URL=http://sonarr:8989
+      - SONARR_API_KEY=${SONARR_API_KEY}
+    volumes:
+      - /volume1/data:/data
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+networks:
+  default:
+    name: my-cinema-network

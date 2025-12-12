@@ -220,6 +220,19 @@ export async function discoverMedia(
     params.sort_by = filters.sortBy
   }
 
+  // Anime filter: Japanese origin + Animation genre (16)
+  if (filters.animeOnly) {
+    params.with_origin_country = 'JP'
+    // Add Animation genre (16) to existing genres or set it
+    const animationGenreId = 16
+    if (filters.genres && filters.genres.length > 0) {
+      // Combine with existing genres using AND logic
+      params.with_genres = [...filters.genres, animationGenreId].join(',')
+    } else {
+      params.with_genres = animationGenreId
+    }
+  }
+
   const { data } = await api.get<TMDBResponse<TMDBSearchResult>>(`/discover/${mediaType}`, { params })
 
   return {
@@ -276,10 +289,11 @@ export async function getEnhancedRecommendations(
 }
 
 export async function getMediaDetails(mediaType: MediaType, id: number): Promise<MediaDetails> {
-  const [detailsResponse, watchProvidersResponse, creditsResponse] = await Promise.all([
+  const [detailsResponse, watchProvidersResponse, creditsResponse, videosResponse] = await Promise.all([
     api.get(`/${mediaType}/${id}`),
     api.get<WatchProviders>(`/${mediaType}/${id}/watch/providers`),
     api.get<Credits>(`/${mediaType}/${id}/credits`),
+    api.get(`/${mediaType}/${id}/videos`),
   ])
 
   const details = detailsResponse.data
@@ -339,6 +353,38 @@ export async function getMediaDetails(mediaType: MediaType, id: number): Promise
     ? transformSeasons(details.seasons)
     : undefined
 
+  // Transform videos (prioritize trailers from YouTube)
+  const transformedVideos = (videosResponse.data.results || [])
+    .filter((v: { site: string }) => v.site === 'YouTube')
+    .map((v: {
+      id: string
+      key: string
+      name: string
+      site: string
+      type: string
+      official: boolean
+      published_at: string
+    }) => ({
+      id: v.id,
+      key: v.key,
+      name: v.name,
+      site: v.site,
+      type: v.type,
+      official: v.official,
+      publishedAt: v.published_at,
+    }))
+    .sort((a: { type: string; official: boolean }, b: { type: string; official: boolean }) => {
+      // Prioritize: Official Trailers > Trailers > Teasers > Others
+      const priority = (v: { type: string; official: boolean }) => {
+        if (v.type === 'Trailer' && v.official) return 0
+        if (v.type === 'Trailer') return 1
+        if (v.type === 'Teaser' && v.official) return 2
+        if (v.type === 'Teaser') return 3
+        return 4
+      }
+      return priority(a) - priority(b)
+    })
+
   return {
     id: details.id,
     title: details.title || details.name,
@@ -366,6 +412,7 @@ export async function getMediaDetails(mediaType: MediaType, id: number): Promise
     },
     similar: sortedRecommendations,
     seasons,
+    videos: transformedVideos,
   }
 }
 
@@ -413,6 +460,28 @@ export async function findByExternalId(externalId: string | number, source: 'imd
     return null
   } catch (error) {
     console.error('Error finding by external ID:', error)
+    return null
+  }
+}
+
+// Find TMDB data by external ID with poster path (for calendar)
+export async function findTVByExternalId(externalId: string | number, source: 'imdb_id' | 'tvdb_id'): Promise<{ id: number; posterPath: string | null } | null> {
+  try {
+    const { data } = await api.get(`/find/${externalId}`, {
+      params: { external_source: source }
+    })
+
+    // Check TV results first (for TVDB)
+    if (data.tv_results && data.tv_results.length > 0) {
+      return {
+        id: data.tv_results[0].id,
+        posterPath: data.tv_results[0].poster_path || null
+      }
+    }
+
+    return null
+  } catch (error) {
+    console.error('Error finding TV by external ID:', error)
     return null
   }
 }
@@ -479,4 +548,104 @@ export function transformSeasons(seasons: {
       airDate: s.air_date,
       episodeCount: s.episode_count,
     }))
+}
+
+// Person/Actor types
+export interface PersonDetails {
+  id: number
+  name: string
+  biography: string
+  birthday: string | null
+  deathday: string | null
+  placeOfBirth: string | null
+  profilePath: string | null
+  knownForDepartment: string
+  alsoKnownAs: string[]
+  popularity: number
+}
+
+export interface PersonCredit {
+  id: number
+  title: string
+  character?: string
+  job?: string
+  posterPath: string | null
+  backdropPath: string | null
+  releaseDate: string
+  mediaType: MediaType
+  voteAverage: number
+}
+
+export interface PersonCombinedCredits {
+  cast: PersonCredit[]
+  crew: PersonCredit[]
+}
+
+// Get person details
+export async function getPersonDetails(personId: number): Promise<PersonDetails | null> {
+  try {
+    const { data } = await api.get(`/person/${personId}`)
+
+    return {
+      id: data.id,
+      name: data.name,
+      biography: data.biography || '',
+      birthday: data.birthday,
+      deathday: data.deathday,
+      placeOfBirth: data.place_of_birth,
+      profilePath: data.profile_path,
+      knownForDepartment: data.known_for_department || 'Acting',
+      alsoKnownAs: data.also_known_as || [],
+      popularity: data.popularity,
+    }
+  } catch (error) {
+    console.error('Error fetching person details:', error)
+    return null
+  }
+}
+
+// Get person combined credits (movies and TV shows)
+export async function getPersonCredits(personId: number): Promise<PersonCombinedCredits | null> {
+  try {
+    const { data } = await api.get(`/person/${personId}/combined_credits`)
+
+    const mapCredit = (item: {
+      id: number
+      title?: string
+      name?: string
+      character?: string
+      job?: string
+      poster_path: string | null
+      backdrop_path: string | null
+      release_date?: string
+      first_air_date?: string
+      media_type: string
+      vote_average: number
+    }): PersonCredit => ({
+      id: item.id,
+      title: item.title || item.name || '',
+      character: item.character,
+      job: item.job,
+      posterPath: item.poster_path,
+      backdropPath: item.backdrop_path,
+      releaseDate: item.release_date || item.first_air_date || '',
+      mediaType: item.media_type as MediaType,
+      voteAverage: item.vote_average,
+    })
+
+    // Sort by release date (newest first) and filter out items without posters
+    const sortByDate = (a: PersonCredit, b: PersonCredit) => {
+      const dateA = a.releaseDate ? new Date(a.releaseDate).getTime() : 0
+      const dateB = b.releaseDate ? new Date(b.releaseDate).getTime() : 0
+      return dateB - dateA
+    }
+
+    return {
+      cast: (data.cast || []).map(mapCredit).sort(sortByDate),
+      crew: (data.crew || []).map(mapCredit).sort(sortByDate),
+    }
+  } catch (error) {
+    console.error('Error fetching person credits:', error)
+    return null
+  }
 }

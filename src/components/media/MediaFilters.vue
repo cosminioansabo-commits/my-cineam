@@ -7,6 +7,7 @@ import MultiSelect from 'primevue/multiselect'
 import Slider from 'primevue/slider'
 import Button from 'primevue/button'
 import Chip from 'primevue/chip'
+import ToggleSwitch from 'primevue/toggleswitch'
 
 const filtersStore = useFiltersStore()
 
@@ -93,6 +94,13 @@ const ratingRange = computed({
         class="bg-blue-500/20 border border-blue-500/30"
         @remove="filtersStore.resetFilter('platforms')"
       />
+      <Chip
+        v-if="filtersStore.filters.animeOnly"
+        label="Anime"
+        removable
+        class="bg-pink-500/20 border border-pink-500/30"
+        @remove="filtersStore.resetFilter('animeOnly')"
+      />
     </div>
 
     <!-- Media Type -->
@@ -116,6 +124,25 @@ const ratingRange = computed({
           {{ option.label }}
         </button>
       </div>
+    </div>
+
+    <!-- Anime Toggle -->
+    <div class="filter-section">
+      <div class="flex items-center justify-between">
+        <label class="filter-label mb-0 flex items-center gap-2">
+          <span class="anime-icon" :class="{ 'anime-icon-active': filtersStore.filters.animeOnly }">アニメ</span>
+          Anime Only
+        </label>
+        <ToggleSwitch
+          :modelValue="filtersStore.filters.animeOnly"
+          @update:modelValue="filtersStore.setAnimeOnly"
+          :pt="{
+            root: { class: 'w-11' },
+            slider: { class: filtersStore.filters.animeOnly ? 'bg-pink-500' : 'bg-zinc-600' }
+          }"
+        />
+      </div>
+      <p class="text-xs text-gray-500 mt-2">Filter to show only Japanese animation</p>
     </div>
 
     <!-- Genres -->
@@ -223,3 +250,22 @@ const ratingRange = computed({
     </div>
   </div>
 </template>
+
+<style scoped>
+.anime-icon {
+  font-size: 10px;
+  font-weight: 700;
+  color: #9ca3af;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(156, 163, 175, 0.3);
+  background-color: rgba(156, 163, 175, 0.1);
+  transition: all 0.3s ease;
+}
+
+.anime-icon-active {
+  color: #f472b6;
+  border-color: rgba(244, 114, 182, 0.5);
+  background-color: rgba(244, 114, 182, 0.15);
+}
+</style>

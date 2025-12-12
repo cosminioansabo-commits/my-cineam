@@ -50,7 +50,7 @@ const clearSearch = () => {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="space-y-4 sm:space-y-6">
     <!-- Search Header -->
     <div class="max-w-2xl mx-auto">
       <SearchBar
@@ -62,7 +62,7 @@ const clearSearch = () => {
 
     <!-- Results info -->
     <div v-if="searchQuery && mediaStore.totalResults > 0" class="text-center">
-      <p class="text-gray-400">
+      <p class="text-xs sm:text-sm text-gray-400">
         Found <span class="text-white font-semibold">{{ mediaStore.totalResults.toLocaleString() }}</span> results
         for "<span class="text-purple-400">{{ searchQuery }}</span>"
       </p>
@@ -84,25 +84,26 @@ const clearSearch = () => {
     <!-- Empty State - No Query -->
     <div
       v-else-if="!searchQuery"
-      class="flex flex-col items-center justify-center py-16 text-center"
+      class="flex flex-col items-center justify-center py-10 sm:py-16 text-center px-4"
     >
-      <i class="pi pi-search text-5xl text-gray-600 mb-4"></i>
-      <h2 class="text-xl font-semibold text-gray-400 mb-2">Search for movies & TV shows</h2>
-      <p class="text-gray-500">Enter a title to get started</p>
+      <i class="pi pi-search text-3xl sm:text-5xl text-gray-600 mb-3 sm:mb-4"></i>
+      <h2 class="text-base sm:text-xl font-semibold text-gray-400 mb-1.5 sm:mb-2">Search for movies & TV shows</h2>
+      <p class="text-xs sm:text-sm text-gray-500">Enter a title to get started</p>
     </div>
 
     <!-- Empty State - No Results -->
     <div
       v-else-if="searchQuery && !mediaStore.isLoadingSearch && mediaStore.searchResults.length === 0"
-      class="flex flex-col items-center justify-center py-16 text-center"
+      class="flex flex-col items-center justify-center py-10 sm:py-16 text-center px-4"
     >
-      <i class="pi pi-times-circle text-5xl text-gray-600 mb-4"></i>
-      <h2 class="text-xl font-semibold text-gray-400 mb-2">No results found</h2>
-      <p class="text-gray-500 mb-4">Try a different search term</p>
+      <i class="pi pi-times-circle text-3xl sm:text-5xl text-gray-600 mb-3 sm:mb-4"></i>
+      <h2 class="text-base sm:text-xl font-semibold text-gray-400 mb-1.5 sm:mb-2">No results found</h2>
+      <p class="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">Try a different search term</p>
       <Button
         label="Clear Search"
         severity="secondary"
         outlined
+        class="!text-xs sm:!text-sm"
         @click="clearSearch"
       />
     </div>
@@ -117,6 +118,7 @@ const clearSearch = () => {
         icon="pi pi-arrow-down"
         severity="secondary"
         outlined
+        class="!text-xs sm:!text-sm"
         @click="loadMore"
       />
     </div>
@@ -126,7 +128,7 @@ const clearSearch = () => {
       v-if="mediaStore.isLoadingSearch && mediaStore.searchResults.length > 0"
       class="flex justify-center"
     >
-      <i class="pi pi-spin pi-spinner text-2xl text-purple-500"></i>
+      <i class="pi pi-spin pi-spinner text-xl sm:text-2xl text-purple-500"></i>
     </div>
   </div>
 </template>

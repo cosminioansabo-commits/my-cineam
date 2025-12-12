@@ -18,6 +18,16 @@ export interface Media {
   originalLanguage?: string
 }
 
+export interface Video {
+  id: string
+  key: string // YouTube video key
+  name: string
+  site: string // YouTube, Vimeo, etc.
+  type: string // Trailer, Teaser, Clip, etc.
+  official: boolean
+  publishedAt: string
+}
+
 export interface MediaDetails extends Media {
   genres: Genre[]
   runtime?: number // movies
@@ -30,6 +40,7 @@ export interface MediaDetails extends Media {
   credits?: Credits
   similar?: Media[]
   seasons?: Season[] // tv
+  videos?: Video[]
 }
 
 // TV Season and Episode types
@@ -140,6 +151,7 @@ export interface FilterOptions {
   yearRange: [number, number]
   ratingRange: [number, number]
   sortBy: SortOption
+  animeOnly: boolean
 }
 
 export type SortOption =

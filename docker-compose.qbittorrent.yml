@@ -1,0 +1,28 @@
+version: "3.8"
+
+# =============================================================================
+# QBITTORRENT STANDALONE
+# =============================================================================
+# Deploy this first to set up qBittorrent before the full stack
+#
+# Usage:
+#   docker-compose -f docker-compose.qbittorrent.yml up -d
+# =============================================================================
+
+services:
+  qbittorrent:
+    image: linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-Europe/Bucharest}
+      - WEBUI_PORT=8080
+    volumes:
+      - /volume2/docker/qbittorrent:/config
+      - /volume1/data:/data
+    ports:
+      - "8080:8080"
+      - "6881:6881"
+      - "6881:6881/udp"
+    restart: unless-stopped
