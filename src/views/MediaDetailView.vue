@@ -419,10 +419,12 @@ const goBack = () => {
                 />
               </div>
 
-              <!-- Tagline -->
-              <p v-if="media.tagline" class="text-gray-400 italic mb-3 sm:mb-4 text-sm sm:text-lg">
-                "{{ media.tagline }}"
-              </p>
+              <!-- style improvements -->
+              <div v-if="media.tagline" class="mb-4 sm:mb-6 pl-4 border-l-2 border-purple-500/60">
+                <p class="text-gray-300 italic text-sm sm:text-base lg:text-lg leading-relaxed">
+                  {{ media.tagline }}
+                </p>
+              </div>
 
               <!-- Overview -->
               <div class="mb-4 sm:mb-6">
@@ -467,10 +469,10 @@ const goBack = () => {
                 <!-- Rotten Tomatoes -->
                 <div
                   v-if="externalRatings?.rottenTomatoes"
-                  class="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 rounded"
+                  class="h-8 flex items-center gap-2 px-3 bg-zinc-800 rounded"
                   :title="`Rotten Tomatoes: ${externalRatings.rottenTomatoes.rating}%`"
                 >
-                  <span class="text-lg">🍅</span>
+                  <span class="text-base leading-none">🍅</span>
                   <span
                     :class="externalRatings.rottenTomatoes.rating >= 60 ? 'text-red-400' : 'text-green-400'"
                     class="font-bold text-sm"
@@ -482,11 +484,11 @@ const goBack = () => {
                 <!-- Metacritic -->
                 <div
                   v-if="externalRatings?.metacritic"
-                  class="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 rounded"
+                  class="h-8 flex items-center gap-2 px-3 bg-zinc-800 rounded"
                   :title="`Metacritic: ${externalRatings.metacritic.rating}/100`"
                 >
                   <span
-                    class="w-6 h-6 flex items-center justify-center text-xs font-bold rounded"
+                    class="w-5 h-5 flex items-center justify-center text-xs font-bold rounded"
                     :class="[
                       externalRatings.metacritic.rating >= 61 ? 'bg-green-500' :
                       externalRatings.metacritic.rating >= 40 ? 'bg-yellow-500' : 'bg-red-500',
@@ -504,7 +506,7 @@ const goBack = () => {
                   :href="`https://www.imdb.com/title/${media.imdbId}`"
                   target="_blank"
                   rel="noopener noreferrer"
-                  class="inline-flex items-center gap-2 px-3 py-1.5 bg-[#f5c518] text-black text-xs sm:text-sm font-bold rounded hover:bg-[#e0b015] transition-colors"
+                  class="h-8 inline-flex items-center gap-2 px-3 bg-[#f5c518] text-black text-sm font-bold rounded hover:bg-[#e0b015] transition-colors"
                 >
                   <span>IMDb</span>
                   <span v-if="externalRatings?.imdb" class="text-black/70">{{ externalRatings.imdb.rating.toFixed(1) }}</span>
