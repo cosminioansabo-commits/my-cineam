@@ -2,13 +2,6 @@ import axios from 'axios'
 
 const OMDB_BASE_URL = 'https://www.omdbapi.com'
 
-const api = axios.create({
-  baseURL: OMDB_BASE_URL,
-  params: {
-    apikey: import.meta.env.VITE_OMDB_API_KEY,
-  },
-})
-
 export interface OMDbRating {
   Source: string
   Value: string
@@ -54,8 +47,11 @@ export interface ExternalRatings {
 const ratingsCache = new Map<string, ExternalRatings>()
 
 export async function getExternalRatings(imdbId: string): Promise<ExternalRatings | null> {
+  const apiKey = import.meta.env.VITE_OMDB_API_KEY
+
   // Check if API key is configured
-  if (!import.meta.env.VITE_OMDB_API_KEY) {
+  if (!apiKey) {
+    console.warn('OMDb API key not configured')
     return null
   }
 
@@ -65,8 +61,11 @@ export async function getExternalRatings(imdbId: string): Promise<ExternalRating
   }
 
   try {
-    const { data } = await api.get<OMDbResponse>('/', {
-      params: { i: imdbId },
+    const { data } = await axios.get<OMDbResponse>(OMDB_BASE_URL, {
+      params: {
+        apikey: apiKey,
+        i: imdbId
+      },
     })
 
     if (data.Response === 'False') {
