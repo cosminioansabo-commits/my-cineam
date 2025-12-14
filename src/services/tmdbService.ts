@@ -420,6 +420,7 @@ export async function getMediaDetails(mediaType: MediaType, id: number): Promise
     voteCount: details.vote_count,
     genreIds,
     popularity: details.popularity,
+    originalLanguage: details.original_language,
     genres: details.genres || [],
     runtime: details.runtime,
     numberOfSeasons: details.number_of_seasons,
@@ -604,6 +605,8 @@ export interface PersonCredit {
   releaseDate: string
   mediaType: MediaType
   voteAverage: number
+  voteCount: number
+  popularity: number
 }
 
 export interface PersonCombinedCredits {
@@ -651,6 +654,8 @@ export async function getPersonCredits(personId: number): Promise<PersonCombined
       first_air_date?: string
       media_type: string
       vote_average: number
+      vote_count: number
+      popularity: number
     }): PersonCredit => ({
       id: item.id,
       title: item.title || item.name || '',
@@ -661,6 +666,8 @@ export async function getPersonCredits(personId: number): Promise<PersonCombined
       releaseDate: item.release_date || item.first_air_date || '',
       mediaType: item.media_type as MediaType,
       voteAverage: item.vote_average,
+      voteCount: item.vote_count || 0,
+      popularity: item.popularity || 0,
     })
 
     // Sort by release date (newest first) and filter out items without posters
@@ -721,3 +728,4 @@ export async function getCollectionDetails(collectionId: number): Promise<Collec
     return null
   }
 }
+

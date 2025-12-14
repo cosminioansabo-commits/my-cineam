@@ -12,6 +12,8 @@ import type { MediaType } from '@/types'
 const props = defineProps<{
   visible: boolean
   title: string
+  originalTitle?: string // Japanese/original title for anime
+  originalLanguage?: string // e.g. 'ja' for Japanese
   year?: number
   mediaType: MediaType
   mediaId: number
@@ -55,8 +57,17 @@ onMounted(() => {
   }
 })
 
-// Compute the actual search query - use customQuery for episode searches
-const searchQuery = computed(() => props.customQuery || props.title)
+// For anime (Japanese content), prefer the original Japanese title for better search results on private trackers
+const isJapanese = computed(() => props.originalLanguage === 'ja')
+const hasOriginalTitle = computed(() => props.originalTitle && props.originalTitle !== props.title)
+
+// Compute the actual search query - use customQuery for episode searches, originalTitle for anime
+const searchQuery = computed(() => {
+  if (props.customQuery) return props.customQuery
+  // For Japanese content with different original title, use the original (Japanese) title
+  if (isJapanese.value && hasOriginalTitle.value) return props.originalTitle!
+  return props.title
+})
 const displayTitle = computed(() => props.customQuery || props.title)
 
 async function performSearch() {
@@ -102,7 +113,10 @@ async function handleDownload(torrent: TorrentResult) {
         <div>
           <h2 class="text-sm sm:text-lg font-semibold text-white">Find Torrent</h2>
           <p class="text-xs sm:text-sm text-gray-400 truncate max-w-[180px] sm:max-w-none">
-            {{ displayTitle }}<span v-if="year && !customQuery" class="text-gray-500"> ({{ year }})</span>
+            {{ searchQuery }}<span v-if="year && !customQuery" class="text-gray-500"> ({{ year }})</span>
+          </p>
+          <p v-if="isJapanese && hasOriginalTitle && !customQuery" class="text-[10px] sm:text-xs text-gray-500">
+            Searching with Japanese title
           </p>
         </div>
       </div>

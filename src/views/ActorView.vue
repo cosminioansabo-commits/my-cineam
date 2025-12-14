@@ -72,19 +72,26 @@ const truncatedBio = computed(() => {
   return person.value.biography.slice(0, 500) + '...'
 })
 
+// Known For: top items sorted by vote_count (like TMDB website)
+// Uses the already-fetched combined_credits data
 const knownFor = computed(() => {
-  if (!credits.value) return []
-  // Get top credits (cast + crew)
-  const allCredits = [...credits.value.cast, ...credits.value.crew]
-  // Remove duplicates by id and mediaType
-  const unique = allCredits.filter((item, index, self) =>
-    index === self.findIndex(t => t.id === item.id && t.mediaType === item.mediaType)
-  )
-  // Sort by vote average and filter those with posters
-  return unique
+  if (!credits.value || !person.value) return []
+
+  const isActor = person.value.knownForDepartment === 'Acting'
+
+  // Get relevant credits based on department
+  const relevantCredits = isActor ? credits.value.cast : credits.value.crew
+
+  // Filter, deduplicate, and sort by vote_count
+  const unique = relevantCredits
     .filter(c => c.posterPath)
-    .sort((a, b) => b.voteAverage - a.voteAverage)
-    .slice(0, 20)
+    .filter((item, index, self) =>
+      index === self.findIndex(t => t.id === item.id && t.mediaType === item.mediaType)
+    )
+    .sort((a, b) => b.voteCount - a.voteCount)
+    .slice(0, 10)
+
+  return unique
 })
 
 const filmography = computed(() => {
@@ -218,28 +225,22 @@ const profileUrl = computed(() => {
           <h2 class="text-lg sm:text-2xl font-bold text-white mb-4 sm:mb-6">Known For</h2>
           <div class="flex gap-3 sm:gap-4 overflow-x-auto pb-4 hide-scrollbar">
             <div
-              v-for="credit in knownFor"
-              :key="`${credit.mediaType}-${credit.id}`"
+              v-for="item in knownFor"
+              :key="`known-${item.mediaType}-${item.id}`"
               class="flex-shrink-0 w-28 sm:w-40 cursor-pointer group"
-              @click="goToMedia(credit.id, credit.mediaType)"
+              @click="goToMedia(item.id, item.mediaType)"
             >
               <div class="aspect-[2/3] rounded-lg sm:rounded-xl overflow-hidden bg-zinc-800 mb-2 sm:mb-3 shadow-lg shadow-black/30 border border-zinc-700/50 group-hover:border-purple-500/50 transition-all duration-200">
                 <img
-                  :src="getImageUrl(credit.posterPath, 'w300')"
-                  :alt="credit.title"
+                  :src="getImageUrl(item.posterPath, 'w300')"
+                  :alt="item.title"
                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"
                 />
               </div>
-              <p class="font-medium text-xs sm:text-sm text-white truncate">{{ credit.title }}</p>
-              <p v-if="credit.character" class="text-[10px] sm:text-xs text-gray-500 truncate mt-0.5">
-                as {{ credit.character }}
-              </p>
-              <p v-else-if="credit.job" class="text-[10px] sm:text-xs text-gray-500 truncate mt-0.5">
-                {{ credit.job }}
-              </p>
+              <p class="font-medium text-xs sm:text-sm text-white truncate">{{ item.title }}</p>
               <p class="text-[10px] sm:text-xs text-gray-600 mt-0.5">
-                {{ credit.releaseDate?.slice(0, 4) || 'TBA' }}
+                {{ item.releaseDate?.slice(0, 4) || 'TBA' }}
               </p>
             </div>
           </div>

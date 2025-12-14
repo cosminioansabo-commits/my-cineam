@@ -630,6 +630,8 @@ const goBack = () => {
       v-if="media"
       v-model:visible="showTorrentModal"
       :title="media.title"
+      :original-title="media.originalTitle"
+      :original-language="media.originalLanguage"
       :year="year ? Number(year) : undefined"
       :media-type="mediaType"
       :media-id="media.id"

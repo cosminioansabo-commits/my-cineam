@@ -45,6 +45,8 @@ services:
       - RADARR_API_KEY=${RADARR_API_KEY}
       - SONARR_URL=http://sonarr:8989
       - SONARR_API_KEY=${SONARR_API_KEY}
+      # Search providers (only prowlarr to use Filelist)
+      - SEARCH_PROVIDERS=prowlarr
       # Authentication
       - JWT_SECRET=${JWT_SECRET}
       - APP_PASSWORD_HASH=${APP_PASSWORD_HASH}
