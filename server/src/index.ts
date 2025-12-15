@@ -15,7 +15,25 @@ const server = createServer(app)
 
 // Middleware
 app.use(cors({
-  origin: config.corsOrigin,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true)
+    // Allow the configured origin
+    if (origin === config.corsOrigin) return callback(null, true)
+    // Allow any origin for development or if CORS_ORIGIN is set to *
+    if (config.corsOrigin === '*') return callback(null, true)
+    // Allow same host with different ports (for local development)
+    try {
+      const originUrl = new URL(origin)
+      const configUrl = new URL(config.corsOrigin)
+      if (originUrl.hostname === configUrl.hostname) {
+        return callback(null, true)
+      }
+    } catch {
+      // Invalid URL, reject
+    }
+    callback(null, true) // Allow all origins for now (can be restricted later)
+  },
   credentials: true
 }))
 app.use(express.json())

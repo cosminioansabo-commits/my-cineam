@@ -477,6 +477,7 @@ defineExpose({
       ref="videoRef"
       class="w-full h-full"
       playsinline
+      crossorigin="anonymous"
       @click="togglePlay"
       @dblclick="toggleFullscreen"
     />
