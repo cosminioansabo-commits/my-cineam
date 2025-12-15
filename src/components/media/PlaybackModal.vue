@@ -2,7 +2,7 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import Dialog from 'primevue/dialog'
 import VideoPlayer from './VideoPlayer.vue'
-import { playbackService, type PlaybackInfo } from '@/services/playbackService'
+import { mediaService, type PlaybackInfo } from '@/services/mediaService'
 
 const props = defineProps<{
   visible: boolean
@@ -43,9 +43,9 @@ const fetchPlaybackInfo = async () => {
     console.log('Fetching playback info:', { mediaType: props.mediaType, tmdbId: props.tmdbId, showTmdbId: props.showTmdbId, season: props.seasonNumber, episode: props.episodeNumber })
 
     if (props.mediaType === 'movie' && props.tmdbId) {
-      playbackInfo.value = await playbackService.getMoviePlayback(props.tmdbId)
+      playbackInfo.value = await mediaService.getMoviePlayback(props.tmdbId)
     } else if (props.mediaType === 'tv' && props.showTmdbId && props.seasonNumber && props.episodeNumber) {
-      playbackInfo.value = await playbackService.getEpisodePlayback(
+      playbackInfo.value = await mediaService.getEpisodePlayback(
         props.showTmdbId,
         props.seasonNumber,
         props.episodeNumber
@@ -56,31 +56,23 @@ const fetchPlaybackInfo = async () => {
 
     if (!playbackInfo.value) {
       hasError.value = true
-      errorMessage.value = 'Media not found in Plex. Make sure Plex has scanned your library.'
+      errorMessage.value = 'Media not found. Make sure Radarr/Sonarr has the file.'
     }
   } catch (error) {
     console.error('Error fetching playback info:', error)
     hasError.value = true
-    errorMessage.value = 'Failed to connect to playback service'
+    errorMessage.value = 'Failed to connect to media service'
   } finally {
     isLoading.value = false
   }
 }
 
-// Handle progress updates
+// Handle progress updates - without Plex, we don't report progress to any server
+// Could be extended to save progress locally or to a custom backend
 const handleProgress = async (timeMs: number, state: 'playing' | 'paused' | 'stopped') => {
-  if (playbackInfo.value?.ratingKey) {
-    try {
-      await playbackService.reportProgress(
-        playbackInfo.value.ratingKey,
-        timeMs,
-        state,
-        playbackInfo.value.duration
-      )
-    } catch (error) {
-      console.error('Error reporting progress:', error)
-    }
-  }
+  // Progress reporting can be implemented later if needed
+  // For now, just log for debugging
+  console.log(`Progress: ${timeMs}ms, state: ${state}`)
 }
 
 // Handle close - confirm if playing
@@ -157,7 +149,7 @@ const displayTitle = computed(() => {
         ref="playerRef"
         :stream-url="playbackInfo.streamUrl"
         :title="displayTitle"
-        :resume-position="playbackInfo.viewOffset"
+        :resume-position="0"
         :duration="playbackInfo.duration"
         :subtitles="playbackInfo.subtitles"
         :audio-tracks="playbackInfo.audioTracks"

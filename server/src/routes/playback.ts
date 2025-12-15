@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express'
 import axios from 'axios'
+import { spawn } from 'child_process'
 import { plexService } from '../services/plexService.js'
 import { config } from '../config.js'
 import fs from 'fs'
@@ -224,80 +225,86 @@ router.post('/refresh-cache', async (req: Request, res: Response) => {
 // Proxies subtitles from Plex and converts to WebVTT format
 // ============================================================================
 
-// Get subtitle - handles both external files (key:path) and embedded (partId:streamId)
+// Extract subtitle using ffmpeg from media file
 router.get('/subtitle/:subtitleParam', async (req: Request, res: Response) => {
-  if (!plexService.isEnabled()) {
-    res.status(503).json({ error: 'Plex is not configured' })
-    return
-  }
-
   const { subtitleParam } = req.params
-  const urlsToTry: string[] = []
 
-  // Check if it's an external subtitle file (starts with "key:")
-  if (subtitleParam.startsWith('key:')) {
-    const subtitleKey = decodeURIComponent(subtitleParam.substring(4))
-    console.log('External subtitle key:', subtitleKey)
-    // External subtitle file - use the key directly
-    urlsToTry.push(`${config.plex.url}${subtitleKey}?X-Plex-Token=${config.plex.token}`)
-  } else {
-    // Embedded subtitle - parse partId:streamId
-    const [partId, streamId] = subtitleParam.split(':')
-    console.log('Embedded subtitle - partId:', partId, 'streamId:', streamId)
+  try {
+    // Decode the parameter: format is "streamIndex:filePath"
+    const decoded = decodeURIComponent(subtitleParam)
+    const colonIndex = decoded.indexOf(':')
+    if (colonIndex === -1) {
+      res.status(400).json({ error: 'Invalid subtitle parameter format' })
+      return
+    }
 
-    // Try multiple Plex subtitle URL formats for embedded subtitles
-    urlsToTry.push(
-      // Format 1: Direct subtitle stream extraction
-      `${config.plex.url}/library/parts/${partId}/indexes/sd/${streamId}?X-Plex-Token=${config.plex.token}`,
-      // Format 2: Subtitle file endpoint
-      `${config.plex.url}/library/streams/${streamId}?X-Plex-Token=${config.plex.token}`,
-      // Format 3: Part file with subtitle selection
-      `${config.plex.url}/library/parts/${partId}/file.srt?subtitleStreamID=${streamId}&X-Plex-Token=${config.plex.token}`,
-    )
-  }
+    const streamIndex = parseInt(decoded.substring(0, colonIndex), 10)
+    const filePath = decoded.substring(colonIndex + 1)
 
-  for (const subtitleUrl of urlsToTry) {
-    try {
-      console.log(`Trying subtitle URL: ${subtitleUrl}`)
+    console.log(`Extracting subtitle - stream index: ${streamIndex}, file: ${filePath}`)
 
-      const response = await axios.get(subtitleUrl, {
-        responseType: 'arraybuffer',
-        timeout: 60000,
-        validateStatus: (status) => status === 200
-      })
+    // Verify file exists
+    if (!filePath || !fs.existsSync(filePath)) {
+      console.error(`Media file not found: ${filePath}`)
+      res.status(404).json({ error: 'Media file not found' })
+      return
+    }
 
-      // Convert buffer to string
-      let subtitleContent = Buffer.from(response.data).toString('utf-8')
+    // Use ffmpeg to extract the subtitle stream as WebVTT
+    // -map 0:s:N selects the Nth subtitle stream (0-indexed)
+    const ffmpeg = spawn('ffmpeg', [
+      '-i', filePath,
+      '-map', `0:s:${streamIndex}`,
+      '-f', 'webvtt',
+      '-'  // Output to stdout
+    ])
 
-      // Skip if response is HTML error page or XML
-      if (subtitleContent.trim().startsWith('<')) {
-        console.log('Got HTML/XML response, trying next URL')
-        continue
+    let subtitleData = ''
+    let errorData = ''
+
+    ffmpeg.stdout.on('data', (data) => {
+      subtitleData += data.toString()
+    })
+
+    ffmpeg.stderr.on('data', (data) => {
+      errorData += data.toString()
+    })
+
+    ffmpeg.on('close', (code) => {
+      if (code !== 0) {
+        console.error(`ffmpeg exited with code ${code}`)
+        console.error('ffmpeg stderr:', errorData)
+
+        // Try to provide more specific error
+        if (errorData.includes('Stream map') || errorData.includes('does not contain')) {
+          res.status(404).json({ error: 'Subtitle stream not found in file' })
+        } else {
+          res.status(500).json({ error: 'Failed to extract subtitle' })
+        }
+        return
       }
 
-      // Skip if empty
-      if (!subtitleContent.trim()) {
-        console.log('Got empty response, trying next URL')
-        continue
+      if (!subtitleData.trim()) {
+        console.error('ffmpeg produced empty output')
+        res.status(500).json({ error: 'Empty subtitle output' })
+        return
       }
 
-      // Convert SRT/ASS to WebVTT if needed
-      if (!subtitleContent.startsWith('WEBVTT')) {
-        subtitleContent = convertSrtToVtt(subtitleContent)
-      }
-
-      console.log('Subtitle fetched successfully, length:', subtitleContent.length)
+      console.log(`Subtitle extracted successfully, length: ${subtitleData.length}`)
       res.setHeader('Content-Type', 'text/vtt; charset=utf-8')
       res.setHeader('Access-Control-Allow-Origin', '*')
-      res.send(subtitleContent)
-      return
-    } catch (error: any) {
-      console.log(`URL failed: ${error.message}`)
-    }
-  }
+      res.send(subtitleData)
+    })
 
-  console.error('All subtitle URLs failed for:', subtitleParam)
-  res.status(502).json({ error: 'Failed to fetch subtitle from Plex' })
+    ffmpeg.on('error', (err) => {
+      console.error('ffmpeg spawn error:', err.message)
+      res.status(500).json({ error: 'Failed to run ffmpeg' })
+    })
+
+  } catch (error: any) {
+    console.error('Subtitle extraction error:', error.message)
+    res.status(500).json({ error: 'Failed to extract subtitle' })
+  }
 })
 
 // Convert SRT format to WebVTT

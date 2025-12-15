@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js'
 import torrentRoutes from './routes/torrents.js'
 import libraryRoutes from './routes/library.js'
 import playbackRoutes from './routes/playback.js'
+import mediaRoutes from './routes/media.js'
 import { authMiddleware } from './middleware/auth.js'
 import { setupWebSocket } from './websocket/progressSocket.js'
 import { downloadManager } from './services/downloadManager.js'
@@ -45,6 +46,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/torrents', authMiddleware, torrentRoutes)
 app.use('/api/library', authMiddleware, libraryRoutes)
 app.use('/api/playback', authMiddleware, playbackRoutes)
+app.use('/api/media', authMiddleware, mediaRoutes) // New Plex-free media routes
 
 // Health check
 app.get('/health', (req, res) => {
@@ -75,5 +77,8 @@ server.listen(config.port, () => {
   console.log(`Download path: ${config.downloadPath}`)
   console.log(`CORS origin: ${config.corsOrigin}`)
   console.log(`Auth enabled: ${config.auth.enabled}`)
-  console.log(`Plex enabled: ${config.plex.enabled} (URL: ${config.plex.url}, Token: ${config.plex.token ? '***set***' : 'NOT SET'})`)
+  console.log(`Plex enabled: ${config.plex.enabled}`)
+  console.log(`Radarr enabled: ${config.radarr.enabled}`)
+  console.log(`Sonarr enabled: ${config.sonarr.enabled}`)
+  console.log(`Media API: /api/media (Plex-free, uses Radarr/Sonarr + ffmpeg)`)
 })

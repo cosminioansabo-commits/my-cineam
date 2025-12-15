@@ -333,21 +333,22 @@ class PlexService {
 
     console.log(`Plex: Found ${streams.length} streams for ratingKey ${ratingKey}`)
 
-    // Get part ID for subtitle extraction
-    const partId = part?.id
+    // Get file path for direct subtitle extraction via ffmpeg
+    const filePath = part?.file
 
     // Extract subtitle tracks (streamType 3)
+    // Use ffmpeg to extract subtitles directly from the media file
+    let subtitleIndex = 0
     const subtitles = streams
       .filter((s: PlexMediaStream) => s.streamType === 3)
       .map((s: PlexMediaStream) => {
-        // If subtitle has a key (external file), encode it in the URL
-        // Otherwise use partId and streamId for embedded subtitles
-        const subtitleParam = s.key
-          ? `key:${encodeURIComponent(s.key)}`
-          : `${partId}:${s.id}`
+        const currentIndex = subtitleIndex++
+        // Encode file path and subtitle index for ffmpeg extraction
+        const subtitleParam = encodeURIComponent(`${currentIndex}:${filePath || ''}`)
 
         return {
           id: s.id,
+          streamIndex: currentIndex, // 0-based subtitle stream index for ffmpeg
           language: s.language || 'Unknown',
           languageCode: s.languageCode || 'und',
           displayTitle: s.displayTitle || s.language || 'Unknown',
@@ -371,7 +372,6 @@ class PlexService {
     console.log(`Plex: Found ${subtitles.length} subtitles, ${audioTracks.length} audio tracks`)
 
     // Get file info for direct streaming
-    const filePath = part?.file
     const fileSize = part?.size
     const container = media.container
     const audioCodec = media.audioCodec
