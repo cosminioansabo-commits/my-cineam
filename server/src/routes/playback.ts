@@ -1,9 +1,14 @@
 import { Router, Request, Response } from 'express'
+import axios from 'axios'
 import { plexService } from '../services/plexService.js'
 import { config } from '../config.js'
-import axios from 'axios'
+import fs from 'fs'
+import path from 'path'
 
 const router = Router()
+
+// Cache for file paths (ratingKey -> filePath)
+const filePathCache = new Map<string, { filePath: string; fileSize: number; container: string }>()
 
 // Check Plex connection status
 router.get('/status', async (req: Request, res: Response) => {
@@ -35,7 +40,6 @@ router.get('/movie/:tmdbId', async (req: Request, res: Response) => {
   }
 
   const tmdbId = parseInt(req.params.tmdbId, 10)
-  const quality = req.query.quality as string | undefined
 
   const movie = await plexService.findByTmdbId(tmdbId, 'movie')
   if (!movie) {
@@ -43,7 +47,7 @@ router.get('/movie/:tmdbId', async (req: Request, res: Response) => {
     return
   }
 
-  const playbackInfo = await plexService.getPlaybackInfo(movie.ratingKey, { quality })
+  const playbackInfo = await plexService.getPlaybackInfo(movie.ratingKey)
   if (!playbackInfo) {
     res.json({ found: false })
     return
@@ -65,7 +69,6 @@ router.get('/episode/:showTmdbId/:season/:episode', async (req: Request, res: Re
   const showTmdbId = parseInt(req.params.showTmdbId, 10)
   const season = parseInt(req.params.season, 10)
   const episode = parseInt(req.params.episode, 10)
-  const quality = req.query.quality as string | undefined
 
   const episodeData = await plexService.findEpisode(showTmdbId, season, episode)
   if (!episodeData) {
@@ -73,7 +76,7 @@ router.get('/episode/:showTmdbId/:season/:episode', async (req: Request, res: Re
     return
   }
 
-  const playbackInfo = await plexService.getPlaybackInfo(episodeData.ratingKey, { quality })
+  const playbackInfo = await plexService.getPlaybackInfo(episodeData.ratingKey)
   if (!playbackInfo) {
     res.json({ found: false })
     return
@@ -85,29 +88,23 @@ router.get('/episode/:showTmdbId/:season/:episode', async (req: Request, res: Re
   })
 })
 
-// Get stream URL by Plex rating key (for direct access)
-router.get('/stream/:ratingKey', async (req: Request, res: Response) => {
+// Get playback info by Plex rating key (metadata only, not file streaming)
+router.get('/info/:ratingKey', async (req: Request, res: Response) => {
   if (!plexService.isEnabled()) {
     res.status(503).json({ error: 'Plex is not configured' })
     return
   }
 
   const { ratingKey } = req.params
-  const quality = req.query.quality as string | undefined
-  const location = req.query.location as 'lan' | 'wan' | undefined
 
-  const playbackInfo = await plexService.getPlaybackInfo(ratingKey, { quality })
+  const playbackInfo = await plexService.getPlaybackInfo(ratingKey)
   if (!playbackInfo) {
     res.status(404).json({ error: 'Media not found' })
     return
   }
 
-  // Regenerate stream URL with requested options
-  const streamUrl = plexService.getStreamUrl(ratingKey, { quality, location })
-
   res.json({
-    ...playbackInfo,
-    streamUrl
+    ...playbackInfo
   })
 })
 
@@ -223,8 +220,130 @@ router.post('/refresh-cache', async (req: Request, res: Response) => {
 })
 
 // ============================================================================
-// STREAM PROXY ENDPOINTS
-// These proxy Plex streams through the backend to avoid CORS issues
+// DIRECT FILE STREAMING
+// Serves video files directly with range request support for seeking
+// ============================================================================
+
+// Get content type for video container
+const getContentType = (container: string): string => {
+  const types: Record<string, string> = {
+    'mp4': 'video/mp4',
+    'm4v': 'video/mp4',
+    'mkv': 'video/x-matroska',
+    'webm': 'video/webm',
+    'avi': 'video/x-msvideo',
+    'mov': 'video/quicktime',
+    'wmv': 'video/x-ms-wmv',
+    'flv': 'video/x-flv',
+    'ts': 'video/mp2t',
+  }
+  return types[container.toLowerCase()] || 'video/mp4'
+}
+
+// Direct file streaming with range request support
+router.get('/stream/:ratingKey', async (req: Request, res: Response) => {
+  if (!plexService.isEnabled()) {
+    res.status(503).json({ error: 'Plex is not configured' })
+    return
+  }
+
+  const { ratingKey } = req.params
+
+  try {
+    // Check cache first
+    let fileInfo = filePathCache.get(ratingKey)
+
+    if (!fileInfo) {
+      // Get playback info to get file path
+      const playbackInfo = await plexService.getPlaybackInfo(ratingKey)
+      if (!playbackInfo || !playbackInfo.filePath) {
+        res.status(404).json({ error: 'Media file not found' })
+        return
+      }
+
+      fileInfo = {
+        filePath: playbackInfo.filePath,
+        fileSize: playbackInfo.fileSize || 0,
+        container: playbackInfo.mediaInfo.container
+      }
+
+      // Cache for future requests
+      filePathCache.set(ratingKey, fileInfo)
+    }
+
+    const { filePath, container } = fileInfo
+
+    // Verify file exists
+    if (!fs.existsSync(filePath)) {
+      console.error(`File not found: ${filePath}`)
+      res.status(404).json({ error: 'Media file not found on disk' })
+      return
+    }
+
+    const stat = fs.statSync(filePath)
+    const fileSize = stat.size
+    const contentType = getContentType(container)
+
+    // Handle range requests for seeking
+    const range = req.headers.range
+
+    if (range) {
+      // Parse range header
+      const parts = range.replace(/bytes=/, '').split('-')
+      const start = parseInt(parts[0], 10)
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1
+      const chunkSize = end - start + 1
+
+      console.log(`Streaming ${ratingKey}: bytes ${start}-${end}/${fileSize} (${Math.round(chunkSize / 1024)}KB)`)
+
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunkSize,
+        'Content-Type': contentType,
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'no-cache',
+      })
+
+      const stream = fs.createReadStream(filePath, { start, end })
+      stream.pipe(res)
+
+      stream.on('error', (err) => {
+        console.error('Stream error:', err)
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Stream error' })
+        }
+      })
+    } else {
+      // No range - send entire file (initial request)
+      console.log(`Streaming ${ratingKey}: full file ${Math.round(fileSize / 1024 / 1024)}MB`)
+
+      res.writeHead(200, {
+        'Content-Length': fileSize,
+        'Content-Type': contentType,
+        'Accept-Ranges': 'bytes',
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'no-cache',
+      })
+
+      const stream = fs.createReadStream(filePath)
+      stream.pipe(res)
+
+      stream.on('error', (err) => {
+        console.error('Stream error:', err)
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Stream error' })
+        }
+      })
+    }
+  } catch (error: any) {
+    console.error('Streaming error:', error.message)
+    res.status(500).json({ error: 'Failed to stream file' })
+  }
+})
+
+// ============================================================================
+// HLS PROXY ENDPOINTS (kept for fallback/transcoding if needed)
 // ============================================================================
 
 // Proxy HLS manifest (.m3u8 files)

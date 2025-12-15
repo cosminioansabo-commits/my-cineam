@@ -84,7 +84,8 @@ export interface PlaybackInfo {
   duration: number
   viewOffset: number
   streamUrl: string
-  directPlayUrl?: string
+  filePath?: string // Direct file path for streaming
+  fileSize?: number // File size in bytes
   mediaInfo: {
     width: number
     height: number
@@ -315,7 +316,7 @@ class PlexService {
     return `${config.plex.url}${partKey}?X-Plex-Token=${config.plex.token}`
   }
 
-  async getPlaybackInfo(ratingKey: string, options?: { quality?: string }): Promise<PlaybackInfo | null> {
+  async getPlaybackInfo(ratingKey: string): Promise<PlaybackInfo | null> {
     const metadata = await this.getMetadata(ratingKey)
     if (!metadata || !metadata.Media?.[0]) {
       return null
@@ -351,13 +352,14 @@ class PlexService {
 
     console.log(`Plex: Found ${subtitles.length} subtitles, ${audioTracks.length} audio tracks`)
 
-    // Use requested quality or default to original (direct play/stream)
-    const quality = options?.quality || 'original'
-    if (media.width >= 3840) {
-      console.log(`Plex: 4K content detected (${media.width}x${media.height}), using quality: ${quality}`)
-    }
+    // Get file info for direct streaming
+    const filePath = part?.file
+    const fileSize = part?.size
 
-    const proxyStreamUrl = `/api/playback/proxy/hls/${ratingKey}/master.m3u8?quality=${quality}`
+    console.log(`Plex: File path: ${filePath}, size: ${fileSize ? Math.round(fileSize / 1024 / 1024) + 'MB' : 'unknown'}`)
+
+    // Direct stream URL - serves the file directly
+    const streamUrl = `/api/playback/stream/${ratingKey}`
 
     return {
       ratingKey: metadata.ratingKey,
@@ -367,8 +369,9 @@ class PlexService {
       type: metadata.type,
       duration: metadata.duration,
       viewOffset: metadata.viewOffset || 0,
-      streamUrl: proxyStreamUrl,
-      directPlayUrl: part ? this.getDirectPlayUrl(part.key) : undefined,
+      streamUrl,
+      filePath,
+      fileSize,
       mediaInfo: {
         width: media.width,
         height: media.height,

@@ -116,10 +116,9 @@ export const playbackService = {
   /**
    * Get playback info for a movie by TMDB ID
    */
-  async getMoviePlayback(tmdbId: number, quality?: string): Promise<PlaybackInfo | null> {
+  async getMoviePlayback(tmdbId: number): Promise<PlaybackInfo | null> {
     try {
-      const params = quality ? { quality } : {}
-      const response = await api.get(`/movie/${tmdbId}`, { params })
+      const response = await api.get(`/movie/${tmdbId}`)
 
       if (!response.data.found) {
         return null
@@ -128,7 +127,7 @@ export const playbackService = {
       // Prepend API base URL to relative stream URLs and add auth token
       if (response.data.streamUrl && response.data.streamUrl.startsWith('/')) {
         const token = getAuthToken()
-        const authParam = token ? `&token=${encodeURIComponent(token)}` : ''
+        const authParam = token ? `?token=${encodeURIComponent(token)}` : ''
         response.data.streamUrl = `${API_BASE}${response.data.streamUrl}${authParam}`
       }
 
@@ -145,12 +144,10 @@ export const playbackService = {
   async getEpisodePlayback(
     showTmdbId: number,
     season: number,
-    episode: number,
-    quality?: string
+    episode: number
   ): Promise<PlaybackInfo | null> {
     try {
-      const params = quality ? { quality } : {}
-      const response = await api.get(`/episode/${showTmdbId}/${season}/${episode}`, { params })
+      const response = await api.get(`/episode/${showTmdbId}/${season}/${episode}`)
 
       if (!response.data.found) {
         return null
@@ -159,7 +156,7 @@ export const playbackService = {
       // Prepend API base URL to relative stream URLs and add auth token
       if (response.data.streamUrl && response.data.streamUrl.startsWith('/')) {
         const token = getAuthToken()
-        const authParam = token ? `&token=${encodeURIComponent(token)}` : ''
+        const authParam = token ? `?token=${encodeURIComponent(token)}` : ''
         response.data.streamUrl = `${API_BASE}${response.data.streamUrl}${authParam}`
       }
 
@@ -173,12 +170,9 @@ export const playbackService = {
   /**
    * Get stream URL by Plex rating key
    */
-  async getStreamUrl(
-    ratingKey: string,
-    options?: { quality?: string; location?: 'lan' | 'wan' }
-  ): Promise<PlaybackInfo | null> {
+  async getStreamUrl(ratingKey: string): Promise<PlaybackInfo | null> {
     try {
-      const response = await api.get(`/stream/${ratingKey}`, { params: options })
+      const response = await api.get(`/stream/${ratingKey}`)
       return response.data
     } catch (error) {
       console.error('Error fetching stream URL:', error)

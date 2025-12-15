@@ -26,14 +26,12 @@ const props = defineProps<{
   duration?: number // in milliseconds
   subtitles?: SubtitleTrack[]
   audioTracks?: AudioTrack[]
-  currentQuality?: string // Currently selected quality
   onProgress?: (timeMs: number, state: 'playing' | 'paused' | 'stopped') => void
 }>()
 
 const emit = defineEmits<{
   close: []
   ended: []
-  qualityChange: [quality: string]
 }>()
 
 const videoRef = ref<HTMLVideoElement | null>(null)
@@ -53,16 +51,6 @@ const hasError = ref(false)
 const errorMessage = ref('')
 const showResumePrompt = ref(false)
 const showSettings = ref(false)
-
-// Quality options
-const qualityOptions = [
-  { label: 'Original', value: 'original' },
-  { label: '1080p', value: '1080p' },
-  { label: '720p', value: '720p' },
-  { label: '480p', value: '480p' }
-]
-// Initialize with prop value if provided
-const selectedQuality = ref(props.currentQuality || 'original')
 
 // Subtitle state
 const selectedSubtitle = ref<number | null>(null)
@@ -102,55 +90,53 @@ const initPlayer = () => {
   // Check if it's an HLS stream
   const isHls = props.streamUrl.includes('.m3u8')
 
-  if (isHls && Hls.isSupported()) {
-    // Use HLS.js for browsers that don't natively support HLS
-    // Optimized settings for high bitrate content (4K)
-    hls.value = new Hls({
-      enableWorker: true,
-      lowLatencyMode: false,
-      backBufferLength: 90,
-      maxBufferLength: 60,           // Buffer up to 60 seconds ahead
-      maxMaxBufferLength: 120,       // Allow up to 120 seconds in good conditions
-      maxBufferSize: 120 * 1000000,  // 120MB buffer for high bitrate
-      maxBufferHole: 0.5,            // Tolerate small gaps
-      highBufferWatchdogPeriod: 3,   // Check buffer less frequently
-      startLevel: -1,                // Auto-select quality level
-      abrEwmaDefaultEstimate: 50000000, // Assume 50Mbps initially for LAN
-      fragLoadingTimeOut: 60000,     // 60s timeout for fragments (4K can be slow)
-      fragLoadingMaxRetry: 6,        // Retry failed fragments
-      levelLoadingTimeOut: 30000,    // 30s timeout for level loading
-    })
+  if (isHls) {
+    // HLS stream - use HLS.js or native support
+    if (Hls.isSupported()) {
+      hls.value = new Hls({
+        enableWorker: true,
+        lowLatencyMode: false,
+        backBufferLength: 90,
+        maxBufferLength: 60,
+        maxMaxBufferLength: 120,
+        maxBufferSize: 120 * 1000000,
+      })
 
-    hls.value.loadSource(props.streamUrl)
-    hls.value.attachMedia(video)
+      hls.value.loadSource(props.streamUrl)
+      hls.value.attachMedia(video)
 
-    hls.value.on(Hls.Events.MANIFEST_PARSED, () => {
-      isLoading.value = false
-      checkResumePosition()
-    })
-
-    hls.value.on(Hls.Events.ERROR, (event, data) => {
-      console.error('HLS error:', data)
-      if (data.fatal) {
-        hasError.value = true
-        errorMessage.value = 'Failed to load video stream'
+      hls.value.on(Hls.Events.MANIFEST_PARSED, () => {
         isLoading.value = false
-      }
-    })
-  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-    // Native HLS support (Safari)
-    video.src = props.streamUrl
-    video.addEventListener('loadedmetadata', () => {
-      isLoading.value = false
-      checkResumePosition()
-    })
+        checkResumePosition()
+      })
+
+      hls.value.on(Hls.Events.ERROR, (_event, data) => {
+        console.error('HLS error:', data)
+        if (data.fatal) {
+          hasError.value = true
+          errorMessage.value = 'Failed to load video stream'
+          isLoading.value = false
+        }
+      })
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      // Native HLS support (Safari)
+      video.src = props.streamUrl
+      video.addEventListener('loadedmetadata', () => {
+        isLoading.value = false
+        checkResumePosition()
+      }, { once: true })
+    }
   } else {
-    // Direct play (MP4, etc.)
+    // Direct file playback - native HTML5 video
+    // This is the preferred method for local/LAN streaming
+    console.log('Using direct file playback:', props.streamUrl)
     video.src = props.streamUrl
+
     video.addEventListener('loadedmetadata', () => {
+      console.log('Video loaded:', video.duration, 'seconds')
       isLoading.value = false
       checkResumePosition()
-    })
+    }, { once: true })
   }
 
   // Common event listeners
@@ -256,13 +242,6 @@ const toggleMute = () => {
   if (videoRef.value) {
     videoRef.value.muted = !videoRef.value.muted
   }
-}
-
-// Quality change handler
-const changeQuality = (quality: string) => {
-  selectedQuality.value = quality
-  showSettings.value = false
-  emit('qualityChange', quality)
 }
 
 // Toggle settings menu
@@ -575,7 +554,7 @@ defineExpose({
               />
               <Slider
                 :modelValue="isMuted ? 0 : volume * 100"
-                @update:modelValue="(v) => setVolume(v / 100)"
+                @update:modelValue="(v: number | number[]) => setVolume((Array.isArray(v) ? v[0] : v) / 100)"
                 :min="0"
                 :max="100"
                 class="w-20 volume-slider"
@@ -605,25 +584,8 @@ defineExpose({
                 class="absolute bottom-12 right-0 bg-zinc-900/95 backdrop-blur-sm rounded-lg p-4 min-w-[200px] shadow-xl border border-zinc-700 z-20"
                 @click.stop
               >
-                <!-- Quality Selection -->
-                <div :class="{ 'mb-4': subtitles && subtitles.length > 0 }">
-                  <label class="text-gray-400 text-xs uppercase tracking-wide mb-2 block">Quality</label>
-                  <div class="flex flex-col gap-1">
-                    <button
-                      v-for="option in qualityOptions"
-                      :key="option.value"
-                      class="text-left px-3 py-2 rounded text-sm transition-colors"
-                      :class="selectedQuality === option.value ? 'bg-red-600 text-white' : 'text-gray-300 hover:bg-zinc-700'"
-                      @click="changeQuality(option.value)"
-                    >
-                      {{ option.label }}
-                      <span v-if="option.value === 'original'" class="text-xs text-gray-400 ml-1">(Direct)</span>
-                    </button>
-                  </div>
-                </div>
-
                 <!-- Subtitle Selection -->
-                <div v-if="subtitles && subtitles.length > 0" class="mt-4">
+                <div v-if="subtitles && subtitles.length > 0">
                   <label class="text-gray-400 text-xs uppercase tracking-wide mb-2 block">Subtitles</label>
                   <div class="flex flex-col gap-1 max-h-40 overflow-y-auto">
                     <button
@@ -639,7 +601,7 @@ defineExpose({
                 </div>
 
                 <!-- Audio Track Selection -->
-                <div v-if="audioTracks && audioTracks.length > 1" class="mt-4">
+                <div v-if="audioTracks && audioTracks.length > 1" :class="{ 'mt-4': subtitles && subtitles.length > 0 }">
                   <label class="text-gray-400 text-xs uppercase tracking-wide mb-2 block">Audio</label>
                   <div class="flex flex-col gap-1 max-h-40 overflow-y-auto">
                     <button
@@ -651,6 +613,11 @@ defineExpose({
                       {{ track.displayTitle }}
                     </button>
                   </div>
+                </div>
+
+                <!-- No settings available message -->
+                <div v-if="(!subtitles || subtitles.length === 0) && (!audioTracks || audioTracks.length <= 1)" class="text-gray-400 text-sm">
+                  No additional settings available
                 </div>
               </div>
             </div>
