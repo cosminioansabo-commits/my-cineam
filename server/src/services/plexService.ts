@@ -351,12 +351,10 @@ class PlexService {
 
     console.log(`Plex: Found ${subtitles.length} subtitles, ${audioTracks.length} audio tracks`)
 
-    // Auto-select quality based on resolution to prevent buffering issues
-    // For 4K content, default to 1080p unless explicitly set to original
-    let quality = options?.quality || 'original'
-    if (quality === 'original' && media.width >= 3840) {
-      console.log(`Plex: 4K content detected (${media.width}x${media.height}), defaulting to 1080p`)
-      quality = '1080p'
+    // Use requested quality or default to original (direct play/stream)
+    const quality = options?.quality || 'original'
+    if (media.width >= 3840) {
+      console.log(`Plex: 4K content detected (${media.width}x${media.height}), using quality: ${quality}`)
     }
 
     const proxyStreamUrl = `/api/playback/proxy/hls/${ratingKey}/master.m3u8?quality=${quality}`

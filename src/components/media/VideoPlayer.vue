@@ -104,10 +104,21 @@ const initPlayer = () => {
 
   if (isHls && Hls.isSupported()) {
     // Use HLS.js for browsers that don't natively support HLS
+    // Optimized settings for high bitrate content (4K)
     hls.value = new Hls({
       enableWorker: true,
       lowLatencyMode: false,
-      backBufferLength: 90
+      backBufferLength: 90,
+      maxBufferLength: 60,           // Buffer up to 60 seconds ahead
+      maxMaxBufferLength: 120,       // Allow up to 120 seconds in good conditions
+      maxBufferSize: 120 * 1000000,  // 120MB buffer for high bitrate
+      maxBufferHole: 0.5,            // Tolerate small gaps
+      highBufferWatchdogPeriod: 3,   // Check buffer less frequently
+      startLevel: -1,                // Auto-select quality level
+      abrEwmaDefaultEstimate: 50000000, // Assume 50Mbps initially for LAN
+      fragLoadingTimeOut: 60000,     // 60s timeout for fragments (4K can be slow)
+      fragLoadingMaxRetry: 6,        // Retry failed fragments
+      levelLoadingTimeOut: 30000,    // 30s timeout for level loading
     })
 
     hls.value.loadSource(props.streamUrl)
