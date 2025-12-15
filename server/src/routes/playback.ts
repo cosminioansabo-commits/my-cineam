@@ -224,29 +224,30 @@ router.post('/refresh-cache', async (req: Request, res: Response) => {
 // Proxies subtitles from Plex and converts to WebVTT format
 // ============================================================================
 
-// Get subtitle from Plex by stream ID
-router.get('/subtitle/:ratingKey/:streamId', async (req: Request, res: Response) => {
+// Get subtitle from Plex by partId and streamId
+router.get('/subtitle/:partId/:streamId', async (req: Request, res: Response) => {
   if (!plexService.isEnabled()) {
     res.status(503).json({ error: 'Plex is not configured' })
     return
   }
 
-  const { ratingKey, streamId } = req.params
+  const { partId, streamId } = req.params
+
+  // Plex subtitle URL: /library/parts/{partId}/indexes/sd/{streamId}
+  // This extracts embedded subtitles from the container file
+  const subtitleUrl = `${config.plex.url}/library/parts/${partId}/indexes/sd/${streamId}?X-Plex-Token=${config.plex.token}`
 
   try {
-    // Plex subtitle URL format
-    const subtitleUrl = `${config.plex.url}/library/streams/${streamId}?X-Plex-Token=${config.plex.token}`
-
     console.log(`Fetching subtitle: ${subtitleUrl}`)
 
     const response = await axios.get(subtitleUrl, {
       responseType: 'text',
-      timeout: 30000
+      timeout: 60000 // Longer timeout for subtitle extraction
     })
 
     let subtitleContent = response.data as string
 
-    // Convert SRT to WebVTT if needed
+    // Convert SRT/ASS to WebVTT if needed
     if (!subtitleContent.startsWith('WEBVTT')) {
       subtitleContent = convertSrtToVtt(subtitleContent)
     }

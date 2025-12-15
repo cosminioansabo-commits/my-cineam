@@ -33,6 +33,8 @@ interface PlexMediaStream {
   displayTitle?: string
   selected?: boolean
   default?: boolean
+  key?: string // URL path for external subtitles
+  format?: string // Subtitle format (srt, ass, vtt, etc.)
 }
 
 interface PlexMedia {
@@ -331,16 +333,25 @@ class PlexService {
 
     console.log(`Plex: Found ${streams.length} streams for ratingKey ${ratingKey}`)
 
+    // Get part ID for subtitle extraction
+    const partId = part?.id
+
     // Extract subtitle tracks (streamType 3)
     const subtitles = streams
       .filter((s: PlexMediaStream) => s.streamType === 3)
-      .map((s: PlexMediaStream) => ({
-        id: s.id,
-        language: s.language || 'Unknown',
-        languageCode: s.languageCode || 'und',
-        displayTitle: s.displayTitle || s.language || 'Unknown',
-        url: `/api/playback/subtitle/${ratingKey}/${s.id}`
-      }))
+      .map((s: PlexMediaStream) => {
+        // Build subtitle URL with partId and streamId
+        return {
+          id: s.id,
+          language: s.language || 'Unknown',
+          languageCode: s.languageCode || 'und',
+          displayTitle: s.displayTitle || s.language || 'Unknown',
+          format: s.format || s.codec || 'srt',
+          key: s.key,
+          // Pass partId and streamId for proper Plex subtitle URL construction
+          url: `/api/playback/subtitle/${partId}/${s.id}`
+        }
+      })
 
     // Extract audio tracks (streamType 2)
     const audioTracks = streams
