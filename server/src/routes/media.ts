@@ -35,14 +35,17 @@ router.get('/status', async (req: Request, res: Response) => {
 // Get playback info for a movie by TMDB ID
 router.get('/movie/:tmdbId', async (req: Request, res: Response) => {
   const tmdbId = parseInt(req.params.tmdbId, 10)
+  console.log(`Media API: Getting movie playback for TMDB ID ${tmdbId}`)
 
   try {
     const playbackInfo = await mediaService.getMoviePlayback(tmdbId)
     if (!playbackInfo) {
+      console.log(`Media API: Movie ${tmdbId} not found or no file available`)
       res.json({ found: false })
       return
     }
 
+    console.log(`Media API: Movie ${tmdbId} found, stream URL: ${playbackInfo.streamUrl}`)
     res.json(playbackInfo)
   } catch (error: any) {
     console.error('Error getting movie playback:', error.message)

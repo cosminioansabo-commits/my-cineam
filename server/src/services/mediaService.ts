@@ -1,41 +1,7 @@
-import { spawn } from 'child_process'
-import fs from 'fs'
 import path from 'path'
 import { radarrService } from './radarrService.js'
 import { sonarrService } from './sonarrService.js'
-
-// Types for media info from ffprobe
-export interface MediaStream {
-  index: number
-  codec_name: string
-  codec_type: 'video' | 'audio' | 'subtitle'
-  codec_long_name?: string
-  width?: number
-  height?: number
-  channels?: number
-  channel_layout?: string
-  sample_rate?: string
-  bit_rate?: string
-  tags?: {
-    language?: string
-    title?: string
-    handler_name?: string
-  }
-}
-
-export interface MediaFormat {
-  filename: string
-  format_name: string
-  format_long_name: string
-  duration: string
-  size: string
-  bit_rate: string
-}
-
-export interface MediaInfo {
-  format: MediaFormat
-  streams: MediaStream[]
-}
+import { config } from '../config.js'
 
 export interface SubtitleTrack {
   id: number
@@ -78,61 +44,74 @@ export interface PlaybackInfo {
 }
 
 // Browser-compatible audio codecs
-const BROWSER_COMPATIBLE_AUDIO = ['aac', 'mp3', 'opus', 'vorbis', 'flac', 'pcm_s16le', 'pcm_s24le']
+const BROWSER_COMPATIBLE_AUDIO = ['aac', 'mp3', 'opus', 'vorbis', 'flac', 'pcm']
 
-class MediaService {
-  // Probe a media file using ffprobe to get all stream information
-  async probeFile(filePath: string): Promise<MediaInfo | null> {
-    return new Promise((resolve) => {
-      if (!fs.existsSync(filePath)) {
-        console.error(`MediaService: File not found: ${filePath}`)
-        resolve(null)
-        return
-      }
+// Parse resolution string like "1920x1080" to width/height
+function parseResolution(resolution: string): { width: number; height: number } {
+  const match = resolution?.match(/(\d+)x(\d+)/)
+  if (match) {
+    return { width: parseInt(match[1], 10), height: parseInt(match[2], 10) }
+  }
+  return { width: 0, height: 0 }
+}
 
-      const ffprobe = spawn('ffprobe', [
-        '-v', 'quiet',
-        '-print_format', 'json',
-        '-show_format',
-        '-show_streams',
-        filePath
-      ])
+// Parse runtime string like "2:03:45" to milliseconds
+function parseRuntime(runtime: string): number {
+  if (!runtime) return 0
+  const parts = runtime.split(':').map(p => parseInt(p, 10))
+  if (parts.length === 3) {
+    return (parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000
+  } else if (parts.length === 2) {
+    return (parts[0] * 60 + parts[1]) * 1000
+  }
+  return 0
+}
 
-      let stdout = ''
-      let stderr = ''
+// Parse subtitle languages string like "English / French" to SubtitleTrack[]
+function parseSubtitles(subtitles: string): SubtitleTrack[] {
+  if (!subtitles) return []
 
-      ffprobe.stdout.on('data', (data) => {
-        stdout += data.toString()
-      })
+  const languages = subtitles.split('/').map(s => s.trim()).filter(Boolean)
+  return languages.map((lang, index) => ({
+    id: index,
+    streamIndex: index,
+    language: lang,
+    languageCode: lang.toLowerCase().substring(0, 3),
+    displayTitle: lang,
+    format: 'srt' // Assume SRT, will be extracted as WebVTT
+  }))
+}
 
-      ffprobe.stderr.on('data', (data) => {
-        stderr += data.toString()
-      })
-
-      ffprobe.on('close', (code) => {
-        if (code !== 0) {
-          console.error(`MediaService: ffprobe failed with code ${code}`)
-          console.error('stderr:', stderr)
-          resolve(null)
-          return
-        }
-
-        try {
-          const info = JSON.parse(stdout) as MediaInfo
-          resolve(info)
-        } catch (e) {
-          console.error('MediaService: Failed to parse ffprobe output')
-          resolve(null)
-        }
-      })
-
-      ffprobe.on('error', (err) => {
-        console.error('MediaService: ffprobe spawn error:', err.message)
-        resolve(null)
-      })
-    })
+// Parse audio languages string like "English / Japanese" to AudioTrack[]
+function parseAudioTracks(audioLanguages: string, audioCodec: string, audioChannels: number): AudioTrack[] {
+  if (!audioLanguages) {
+    // Return a single default track
+    return [{
+      id: 0,
+      streamIndex: 0,
+      language: 'Unknown',
+      languageCode: 'und',
+      displayTitle: `${audioCodec} ${audioChannels}ch`,
+      codec: audioCodec,
+      channels: audioChannels,
+      selected: true
+    }]
   }
 
+  const languages = audioLanguages.split('/').map(s => s.trim()).filter(Boolean)
+  return languages.map((lang, index) => ({
+    id: index,
+    streamIndex: index,
+    language: lang,
+    languageCode: lang.toLowerCase().substring(0, 3),
+    displayTitle: `${lang} (${audioCodec} ${audioChannels}ch)`,
+    codec: audioCodec,
+    channels: audioChannels,
+    selected: index === 0
+  }))
+}
+
+class MediaService {
   // Get movie playback info by TMDB ID
   async getMoviePlayback(tmdbId: number): Promise<PlaybackInfo | null> {
     // Get movie from Radarr
@@ -148,31 +127,71 @@ class MediaService {
     }
 
     const filePath = movie.movieFile.path
-    return this.buildPlaybackInfo(filePath, movie.title, 'movie')
+    const movieFileInfo = movie.movieFile
+    const mediaInfo = movieFileInfo.mediaInfo
+
+    // Get media info from Radarr
+    const audioCodec = mediaInfo?.audioCodec || 'unknown'
+    const audioChannels = mediaInfo?.audioChannels || 2
+    const videoCodec = mediaInfo?.videoCodec || 'unknown'
+    const { width, height } = parseResolution(mediaInfo?.resolution || '')
+    const duration = parseRuntime(mediaInfo?.runTime || '')
+
+    // Check if audio codec is browser-compatible
+    const needsTranscode = !BROWSER_COMPATIBLE_AUDIO.some(codec =>
+      audioCodec.toLowerCase().includes(codec)
+    )
+
+    // Parse subtitles and audio tracks from Radarr info
+    const subtitles = parseSubtitles(mediaInfo?.subtitles || '')
+    const audioTracks = parseAudioTracks(mediaInfo?.audioLanguages || '', audioCodec, audioChannels)
+
+    // Build stream URL - encode the file path
+    const encodedPath = encodeURIComponent(filePath)
+    const streamUrl = needsTranscode
+      ? `/api/media/transcode/${encodedPath}`
+      : `/api/media/stream/${encodedPath}`
+
+    console.log(`MediaService: ${movie.title}`)
+    console.log(`  File: ${filePath}`)
+    console.log(`  Video: ${videoCodec} ${width}x${height}`)
+    console.log(`  Audio: ${audioCodec} ${audioChannels}ch (${needsTranscode ? 'needs transcode' : 'direct play'})`)
+    console.log(`  Subtitles: ${subtitles.length} tracks`)
+
+    return {
+      found: true,
+      title: movie.title,
+      type: 'movie',
+      filePath,
+      fileSize: movieFileInfo.size || 0,
+      duration,
+      mediaInfo: {
+        width,
+        height,
+        videoCodec,
+        audioCodec,
+        container: path.extname(filePath).slice(1) || 'mkv'
+      },
+      needsTranscode,
+      streamUrl,
+      subtitles,
+      audioTracks
+    }
   }
 
   // Get episode playback info by TMDB ID, season, and episode
   async getEpisodePlayback(tmdbId: number, season: number, episode: number): Promise<PlaybackInfo | null> {
     // First, we need to find the series in Sonarr
-    // Sonarr uses TVDB IDs, but we can try to find by searching all series and matching TMDB ID
-    // This is a limitation - we may need to add TMDB to TVDB mapping via TMDB API
-
-    const allSeries = await sonarrService.getSeries()
-
-    // Try to find series - Sonarr doesn't have TMDB ID directly,
-    // but we can match by IMDB ID or search
-    let series = null
-    for (const s of allSeries) {
-      // We'll need to use the external IDs - for now, let's try the lookup
-      const lookup = await sonarrService.lookupSeriesByTmdbId(tmdbId)
-      if (lookup && lookup.tvdbId) {
-        series = await sonarrService.getSeriesByTvdbId(lookup.tvdbId)
-        break
-      }
+    // Sonarr uses TVDB IDs, so we need to look up via TMDB
+    const lookup = await sonarrService.lookupSeriesByTmdbId(tmdbId)
+    if (!lookup || !lookup.tvdbId) {
+      console.log(`MediaService: Could not lookup series with TMDB ID ${tmdbId}`)
+      return null
     }
 
+    const series = await sonarrService.getSeriesByTvdbId(lookup.tvdbId)
     if (!series) {
-      console.log(`MediaService: Series with TMDB ID ${tmdbId} not found in Sonarr`)
+      console.log(`MediaService: Series with TVDB ID ${lookup.tvdbId} not found in Sonarr`)
       return null
     }
 
@@ -192,121 +211,57 @@ class MediaService {
       return null
     }
 
-    // Get episode file info - Sonarr episode object doesn't include full path
-    // We need to construct it from series path
-    const episodeFile = await this.getEpisodeFilePath(series.id, targetEpisode.episodeFileId)
-    if (!episodeFile) {
-      console.log(`MediaService: Could not get episode file path`)
+    // Get episode file info from Sonarr
+    const episodeFileInfo = await this.getEpisodeFileInfo(targetEpisode.episodeFileId)
+    if (!episodeFileInfo) {
+      console.log(`MediaService: Could not get episode file info`)
       return null
     }
 
-    const title = `${series.title} - S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')} - ${targetEpisode.title}`
-    return this.buildPlaybackInfo(episodeFile, title, 'episode')
-  }
+    const filePath = episodeFileInfo.path
+    const mediaInfo = episodeFileInfo.mediaInfo
 
-  // Get episode file path from Sonarr
-  private async getEpisodeFilePath(seriesId: number, episodeFileId: number): Promise<string | null> {
-    try {
-      // Sonarr has an episodefile endpoint
-      const response = await fetch(
-        `${process.env.SONARR_URL}/api/v3/episodefile/${episodeFileId}`,
-        {
-          headers: {
-            'X-Api-Key': process.env.SONARR_API_KEY || ''
-          }
-        }
-      )
-      if (!response.ok) return null
-      const data = await response.json() as { path: string }
-      return data.path
-    } catch (error) {
-      console.error('MediaService: Error getting episode file:', error)
-      return null
-    }
-  }
-
-  // Build playback info from a file path
-  private async buildPlaybackInfo(filePath: string, title: string, type: 'movie' | 'episode'): Promise<PlaybackInfo | null> {
-    // Probe the file
-    const mediaInfo = await this.probeFile(filePath)
-    if (!mediaInfo) {
-      console.log(`MediaService: Could not probe file: ${filePath}`)
-      return null
-    }
-
-    // Find video stream
-    const videoStream = mediaInfo.streams.find(s => s.codec_type === 'video')
-    if (!videoStream) {
-      console.log(`MediaService: No video stream found in file`)
-      return null
-    }
-
-    // Find first audio stream
-    const audioStream = mediaInfo.streams.find(s => s.codec_type === 'audio')
-
-    // Get all subtitle streams
-    const subtitleStreams = mediaInfo.streams.filter(s => s.codec_type === 'subtitle')
-    let subtitleIndex = 0
-    const subtitles: SubtitleTrack[] = subtitleStreams.map(s => {
-      const idx = subtitleIndex++
-      return {
-        id: s.index,
-        streamIndex: idx,
-        language: s.tags?.language || 'Unknown',
-        languageCode: s.tags?.language || 'und',
-        displayTitle: s.tags?.title || s.tags?.language || `Subtitle ${idx + 1}`,
-        format: s.codec_name
-      }
-    })
-
-    // Get all audio streams
-    const audioStreams = mediaInfo.streams.filter(s => s.codec_type === 'audio')
-    let audioIndex = 0
-    const audioTracks: AudioTrack[] = audioStreams.map((s, i) => ({
-      id: s.index,
-      streamIndex: audioIndex++,
-      language: s.tags?.language || 'Unknown',
-      languageCode: s.tags?.language || 'und',
-      displayTitle: s.tags?.title || s.tags?.language || `Audio ${i + 1}`,
-      codec: s.codec_name,
-      channels: s.channels || 2,
-      selected: i === 0 // First audio track is selected by default
-    }))
+    // Get media info from Sonarr
+    const audioCodec = mediaInfo?.audioCodec || 'unknown'
+    const audioChannels = mediaInfo?.audioChannels || 2
+    const videoCodec = mediaInfo?.videoCodec || 'unknown'
+    const { width, height } = parseResolution(mediaInfo?.resolution || '')
+    const duration = parseRuntime(mediaInfo?.runTime || '')
 
     // Check if audio codec is browser-compatible
-    const audioCodec = audioStream?.codec_name || 'unknown'
-    const needsTranscode = !BROWSER_COMPATIBLE_AUDIO.includes(audioCodec.toLowerCase())
+    const needsTranscode = !BROWSER_COMPATIBLE_AUDIO.some(codec =>
+      audioCodec.toLowerCase().includes(codec)
+    )
 
-    // Parse duration (ffprobe returns seconds as string)
-    const durationSec = parseFloat(mediaInfo.format.duration) || 0
-    const durationMs = Math.floor(durationSec * 1000)
+    // Parse subtitles and audio tracks
+    const subtitles = parseSubtitles(mediaInfo?.subtitles || '')
+    const audioTracks = parseAudioTracks(mediaInfo?.audioLanguages || '', audioCodec, audioChannels)
 
-    // Get file size
-    const fileSize = parseInt(mediaInfo.format.size) || 0
-
-    // Build stream URL - encode the file path
+    // Build stream URL
     const encodedPath = encodeURIComponent(filePath)
     const streamUrl = needsTranscode
       ? `/api/media/transcode/${encodedPath}`
       : `/api/media/stream/${encodedPath}`
 
+    const title = `${series.title} - S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')} - ${targetEpisode.title}`
+
     console.log(`MediaService: ${title}`)
     console.log(`  File: ${filePath}`)
-    console.log(`  Video: ${videoStream.codec_name} ${videoStream.width}x${videoStream.height}`)
-    console.log(`  Audio: ${audioCodec} (${needsTranscode ? 'needs transcode' : 'direct play'})`)
+    console.log(`  Video: ${videoCodec} ${width}x${height}`)
+    console.log(`  Audio: ${audioCodec} ${audioChannels}ch (${needsTranscode ? 'needs transcode' : 'direct play'})`)
     console.log(`  Subtitles: ${subtitles.length} tracks`)
 
     return {
       found: true,
       title,
-      type,
+      type: 'episode',
       filePath,
-      fileSize,
-      duration: durationMs,
+      fileSize: episodeFileInfo.size || 0,
+      duration,
       mediaInfo: {
-        width: videoStream.width || 0,
-        height: videoStream.height || 0,
-        videoCodec: videoStream.codec_name,
+        width,
+        height,
+        videoCodec,
         audioCodec,
         container: path.extname(filePath).slice(1) || 'mkv'
       },
@@ -314,6 +269,37 @@ class MediaService {
       streamUrl,
       subtitles,
       audioTracks
+    }
+  }
+
+  // Get episode file info from Sonarr API
+  private async getEpisodeFileInfo(episodeFileId: number): Promise<{
+    path: string
+    size: number
+    mediaInfo?: {
+      audioCodec: string
+      audioChannels: number
+      audioLanguages: string
+      videoCodec: string
+      resolution: string
+      runTime: string
+      subtitles: string
+    }
+  } | null> {
+    try {
+      const response = await fetch(
+        `${config.sonarr.url}/api/v3/episodefile/${episodeFileId}`,
+        {
+          headers: {
+            'X-Api-Key': config.sonarr.apiKey
+          }
+        }
+      )
+      if (!response.ok) return null
+      return await response.json() as any
+    } catch (error) {
+      console.error('MediaService: Error getting episode file:', error)
+      return null
     }
   }
 

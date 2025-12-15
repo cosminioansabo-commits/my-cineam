@@ -40,6 +40,22 @@ interface RadarrMovie {
     size: number
     dateAdded: string
     quality: { quality: { id: number; name: string } }
+    mediaInfo?: {
+      audioBitrate: number
+      audioChannels: number
+      audioCodec: string
+      audioLanguages: string
+      audioStreamCount: number
+      videoBitDepth: number
+      videoBitrate: number
+      videoCodec: string
+      videoDynamicRangeType: string
+      videoFps: number
+      resolution: string
+      runTime: string
+      scanType: string
+      subtitles: string
+    }
   }
 }
 
