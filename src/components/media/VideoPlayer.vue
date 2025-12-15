@@ -591,7 +591,7 @@ defineExpose({
               <!-- Settings Menu -->
               <div
                 v-if="showSettings"
-                class="absolute bottom-12 right-0 bg-zinc-900/95 backdrop-blur-sm rounded-lg p-4 min-w-[200px] shadow-xl border border-zinc-700"
+                class="absolute bottom-12 right-0 bg-zinc-900/95 backdrop-blur-sm rounded-lg p-4 min-w-[200px] shadow-xl border border-zinc-700 z-20"
                 @click.stop
               >
                 <!-- Quality Selection -->
