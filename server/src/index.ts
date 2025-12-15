@@ -57,4 +57,5 @@ server.listen(config.port, () => {
   console.log(`Download path: ${config.downloadPath}`)
   console.log(`CORS origin: ${config.corsOrigin}`)
   console.log(`Auth enabled: ${config.auth.enabled}`)
+  console.log(`Plex enabled: ${config.plex.enabled} (URL: ${config.plex.url}, Token: ${config.plex.token ? '***set***' : 'NOT SET'})`)
 })

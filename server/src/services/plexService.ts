@@ -345,6 +345,10 @@ class PlexService {
         selected: s.selected || false
       }))
 
+    // Use proxied stream URL to avoid CORS issues
+    const quality = options?.quality || 'original'
+    const proxyStreamUrl = `/api/playback/proxy/hls/${ratingKey}/master.m3u8?quality=${quality}`
+
     return {
       ratingKey: metadata.ratingKey,
       title: metadata.grandparentTitle
@@ -353,7 +357,7 @@ class PlexService {
       type: metadata.type,
       duration: metadata.duration,
       viewOffset: metadata.viewOffset || 0,
-      streamUrl: this.getStreamUrl(ratingKey, options),
+      streamUrl: proxyStreamUrl,
       directPlayUrl: part ? this.getDirectPlayUrl(part.key) : undefined,
       mediaInfo: {
         width: media.width,

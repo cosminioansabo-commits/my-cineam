@@ -119,6 +119,11 @@ export const playbackService = {
         return null
       }
 
+      // Prepend API base URL to relative stream URLs
+      if (response.data.streamUrl && response.data.streamUrl.startsWith('/')) {
+        response.data.streamUrl = `${API_BASE}${response.data.streamUrl}`
+      }
+
       return response.data
     } catch (error) {
       console.error('Error fetching movie playback:', error)
@@ -141,6 +146,11 @@ export const playbackService = {
 
       if (!response.data.found) {
         return null
+      }
+
+      // Prepend API base URL to relative stream URLs
+      if (response.data.streamUrl && response.data.streamUrl.startsWith('/')) {
+        response.data.streamUrl = `${API_BASE}${response.data.streamUrl}`
       }
 
       return response.data

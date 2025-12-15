@@ -51,6 +51,9 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - APP_PASSWORD_HASH=${APP_PASSWORD_HASH}
       - TOKEN_EXPIRY=7d
+      # Plex Media Server (for playback)
+      - PLEX_URL=${PLEX_URL}
+      - PLEX_TOKEN=${PLEX_TOKEN}
     volumes:
       - /volume1/data:/data
       - /volume2/docker/my-cinema/logs:/app/logs
