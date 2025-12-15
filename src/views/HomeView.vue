@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { RouterLink } from 'vue-router'
+import { useAuthStore } from '@/stores/authStore'
 import type { Media } from '@/types'
 import {
   getFeaturedContent,
@@ -36,7 +37,9 @@ const continueWatchingItems = ref<CarouselItem[]>([])
 
 const isLoadingHero = ref(true)
 const isLoadingContent = ref(true)
-const isLoadingContinueWatching = ref(true)
+const isLoadingContinueWatching = ref(false)
+
+const authStore = useAuthStore()
 
 // Computed
 const heroBackdrop = computed(() => {
@@ -167,9 +170,11 @@ onMounted(async () => {
     isLoadingHero.value = false
   }
 
-  // Load continue watching and library items in background
-  loadContinueWatching()
-  loadLibraryItems()
+  // Load continue watching and library items in background (only if authenticated)
+  if (authStore.isAuthenticated) {
+    loadContinueWatching()
+    loadLibraryItems()
+  }
 
   // Load all carousels in parallel
   try {
