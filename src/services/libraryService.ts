@@ -67,6 +67,22 @@ export interface SonarrEpisode {
   monitored: boolean
 }
 
+export interface SonarrSeasonStats {
+  seasonNumber: number
+  monitored: boolean
+  statistics?: {
+    episodeFileCount: number
+    episodeCount: number
+    totalEpisodeCount: number
+    sizeOnDisk: number
+    percentOfEpisodes: number
+  }
+}
+
+export interface SonarrSeriesDetails extends SonarrSeries {
+  seasons: SonarrSeasonStats[]
+}
+
 export interface CalendarEpisode extends SonarrEpisode {
   series: SonarrSeries | null
 }
@@ -183,6 +199,16 @@ export const libraryService = {
     } catch (error) {
       console.error('Error fetching series episodes:', error)
       return []
+    }
+  },
+
+  async getSeriesDetails(seriesId: number): Promise<SonarrSeriesDetails | null> {
+    try {
+      const response = await api.get(`/series/${seriesId}`)
+      return response.data.series
+    } catch (error) {
+      console.error('Error fetching series details:', error)
+      return null
     }
   }
 }

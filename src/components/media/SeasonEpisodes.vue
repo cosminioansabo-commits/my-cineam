@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, computed } from 'vue'
 import type { Season, SeasonDetails, Episode } from '@/types'
 import { getTVSeasonDetails, getImageUrl } from '@/services/tmdbService'
-import { libraryService, type SonarrEpisode } from '@/services/libraryService'
+import { libraryService, type SonarrEpisode, type SonarrSeasonStats } from '@/services/libraryService'
 import Accordion from 'primevue/accordion'
 import AccordionPanel from 'primevue/accordionpanel'
 import AccordionHeader from 'primevue/accordionheader'
@@ -27,34 +27,97 @@ const loadedSeasons = ref<Record<number, SeasonDetails>>({})
 const loadingSeasons = ref<Record<number, boolean>>({})
 const expandedSeasons = ref<number[]>([])
 
-// Sonarr episode download status
+// Sonarr data for download status
+const sonarrSeasons = ref<SonarrSeasonStats[]>([])
 const sonarrEpisodes = ref<SonarrEpisode[]>([])
 const downloadStatusLoaded = ref(false)
 
-// Load download status from Sonarr
+// Load download status from Sonarr - get both series (for season stats) and episodes
 const loadDownloadStatus = async () => {
   if (!props.sonarrSeriesId || downloadStatusLoaded.value) return
 
   try {
-    sonarrEpisodes.value = await libraryService.getSeriesEpisodes(props.sonarrSeriesId)
+    // Fetch series details (includes season stats) and episodes in parallel
+    const [seriesDetails, episodes] = await Promise.all([
+      libraryService.getSeriesDetails(props.sonarrSeriesId),
+      libraryService.getSeriesEpisodes(props.sonarrSeriesId)
+    ])
+
+    if (seriesDetails) {
+      sonarrSeasons.value = seriesDetails.seasons
+    }
+    sonarrEpisodes.value = episodes
     downloadStatusLoaded.value = true
   } catch (error) {
     console.error('Error loading download status:', error)
   }
 }
 
-// Check if an episode is downloaded
-const isEpisodeDownloaded = (seasonNumber: number, episodeNumber: number): boolean => {
-  return sonarrEpisodes.value.some(
-    ep => ep.seasonNumber === seasonNumber && ep.episodeNumber === episodeNumber && ep.hasFile
-  )
+// Get Sonarr season stats for a given season number
+const getSonarrSeasonStats = (seasonNumber: number): SonarrSeasonStats | undefined => {
+  return sonarrSeasons.value.find(s => s.seasonNumber === seasonNumber)
 }
 
-// Count downloaded episodes in a season
+// Get total download count from Sonarr's season stats (more reliable than episode matching)
+const getTotalDownloadCount = computed(() => {
+  let downloaded = 0
+  let total = 0
+  for (const season of sonarrSeasons.value) {
+    if (season.seasonNumber > 0 && season.statistics) { // Exclude specials
+      downloaded += season.statistics.episodeFileCount
+      total += season.statistics.episodeCount
+    }
+  }
+  return { downloaded, total }
+})
+
+// Check if episode is downloaded using Sonarr episode data
+const isEpisodeDownloaded = (seasonNumber: number, episodeNumber: number): boolean => {
+  // Try exact match first
+  const exactMatch = sonarrEpisodes.value.find(
+    ep => ep.seasonNumber === seasonNumber && ep.episodeNumber === episodeNumber && ep.hasFile
+  )
+  if (exactMatch) return true
+
+  // If TMDB has only 1 season but Sonarr has multiple, calculate absolute episode number
+  if (props.seasons.length === 1 && seasonNumber === 1) {
+    let cumulativeEp = 0
+    const sortedSeasons = [...new Set(sonarrEpisodes.value.filter(ep => ep.seasonNumber > 0).map(ep => ep.seasonNumber))].sort((a, b) => a - b)
+
+    for (const sonarrSeason of sortedSeasons) {
+      const seasonEps = sonarrEpisodes.value
+        .filter(ep => ep.seasonNumber === sonarrSeason)
+        .sort((a, b) => a.episodeNumber - b.episodeNumber)
+
+      for (const ep of seasonEps) {
+        cumulativeEp++
+        if (cumulativeEp === episodeNumber && ep.hasFile) {
+          return true
+        }
+      }
+    }
+  }
+
+  return false
+}
+
+// Get season download count - uses Sonarr's season statistics which are authoritative
 const getSeasonDownloadCount = (seasonNumber: number): { downloaded: number; total: number } => {
-  const seasonEps = sonarrEpisodes.value.filter(ep => ep.seasonNumber === seasonNumber)
-  const downloaded = seasonEps.filter(ep => ep.hasFile).length
-  return { downloaded, total: seasonEps.length }
+  // If TMDB has only 1 season but Sonarr has multiple, show total across all Sonarr seasons
+  if (props.seasons.length === 1 && seasonNumber === 1) {
+    return getTotalDownloadCount.value
+  }
+
+  // Use Sonarr's season statistics (more reliable than counting episodes)
+  const sonarrSeason = getSonarrSeasonStats(seasonNumber)
+  if (sonarrSeason?.statistics) {
+    return {
+      downloaded: sonarrSeason.statistics.episodeFileCount,
+      total: sonarrSeason.statistics.episodeCount
+    }
+  }
+
+  return { downloaded: 0, total: 0 }
 }
 
 // Load download status when sonarrSeriesId is provided

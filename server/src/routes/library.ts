@@ -235,6 +235,24 @@ router.get('/series/calendar', async (req: Request, res: Response) => {
   res.json({ episodes: enrichedEpisodes })
 })
 
+// Get full series details including seasons stats by Sonarr series ID
+router.get('/series/:seriesId', async (req: Request, res: Response) => {
+  if (!sonarrService.isEnabled()) {
+    res.status(503).json({ error: 'Sonarr is not configured' })
+    return
+  }
+
+  const seriesId = parseInt(req.params.seriesId, 10)
+  const series = await sonarrService.getSeriesById(seriesId)
+
+  if (!series) {
+    res.status(404).json({ error: 'Series not found' })
+    return
+  }
+
+  res.json({ series })
+})
+
 // Get episodes for a series by Sonarr series ID
 router.get('/series/:seriesId/episodes', async (req: Request, res: Response) => {
   if (!sonarrService.isEnabled()) {
