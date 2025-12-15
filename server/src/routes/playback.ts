@@ -220,6 +220,65 @@ router.post('/refresh-cache', async (req: Request, res: Response) => {
 })
 
 // ============================================================================
+// SUBTITLE STREAMING
+// Proxies subtitles from Plex and converts to WebVTT format
+// ============================================================================
+
+// Get subtitle from Plex by stream ID
+router.get('/subtitle/:ratingKey/:streamId', async (req: Request, res: Response) => {
+  if (!plexService.isEnabled()) {
+    res.status(503).json({ error: 'Plex is not configured' })
+    return
+  }
+
+  const { ratingKey, streamId } = req.params
+
+  try {
+    // Plex subtitle URL format
+    const subtitleUrl = `${config.plex.url}/library/streams/${streamId}?X-Plex-Token=${config.plex.token}`
+
+    console.log(`Fetching subtitle: ${subtitleUrl}`)
+
+    const response = await axios.get(subtitleUrl, {
+      responseType: 'text',
+      timeout: 30000
+    })
+
+    let subtitleContent = response.data as string
+
+    // Convert SRT to WebVTT if needed
+    if (!subtitleContent.startsWith('WEBVTT')) {
+      subtitleContent = convertSrtToVtt(subtitleContent)
+    }
+
+    res.setHeader('Content-Type', 'text/vtt; charset=utf-8')
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.send(subtitleContent)
+  } catch (error: any) {
+    console.error('Subtitle fetch error:', error.message)
+    res.status(502).json({ error: 'Failed to fetch subtitle' })
+  }
+})
+
+// Convert SRT format to WebVTT
+function convertSrtToVtt(srt: string): string {
+  // Add WebVTT header
+  let vtt = 'WEBVTT\n\n'
+
+  // Replace SRT timestamp format (00:00:00,000) with WebVTT format (00:00:00.000)
+  const converted = srt
+    .replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2')
+    // Remove SRT sequence numbers (lines with just numbers)
+    .replace(/^\d+\s*$/gm, '')
+    // Clean up extra blank lines
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+  vtt += converted
+  return vtt
+}
+
+// ============================================================================
 // DIRECT FILE STREAMING
 // Serves video files directly with range request support for seeking
 // ============================================================================

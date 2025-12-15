@@ -57,7 +57,7 @@ services:
     volumes:
       - /volume1/data:/data
       - /volume2/docker/my-cinema/logs:/app/logs
-    depends_on:
+    depends_on: 
       - qbittorrent
       - radarr
       - sonarr

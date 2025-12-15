@@ -35,6 +35,7 @@ export interface SubtitleTrack {
   language: string
   languageCode: string
   displayTitle: string
+  url?: string
 }
 
 export interface AudioTrack {
@@ -53,6 +54,7 @@ export interface PlaybackInfo {
   duration?: number
   viewOffset?: number
   streamUrl?: string
+  needsTranscode?: boolean // True if using HLS transcoding for incompatible audio
   directPlayUrl?: string
   mediaInfo?: MediaInfo
   subtitles?: SubtitleTrack[]
@@ -124,11 +126,20 @@ export const playbackService = {
         return null
       }
 
-      // Prepend API base URL to relative stream URLs and add auth token
+      // Prepend API base URL to relative URLs and add auth token
+      const token = getAuthToken()
+      const authParam = token ? `?token=${encodeURIComponent(token)}` : ''
+
       if (response.data.streamUrl && response.data.streamUrl.startsWith('/')) {
-        const token = getAuthToken()
-        const authParam = token ? `?token=${encodeURIComponent(token)}` : ''
         response.data.streamUrl = `${API_BASE}${response.data.streamUrl}${authParam}`
+      }
+
+      // Also update subtitle URLs
+      if (response.data.subtitles) {
+        response.data.subtitles = response.data.subtitles.map((sub: SubtitleTrack) => ({
+          ...sub,
+          url: sub.url?.startsWith('/') ? `${API_BASE}${sub.url}${authParam}` : sub.url
+        }))
       }
 
       return response.data
@@ -153,11 +164,20 @@ export const playbackService = {
         return null
       }
 
-      // Prepend API base URL to relative stream URLs and add auth token
+      // Prepend API base URL to relative URLs and add auth token
+      const token = getAuthToken()
+      const authParam = token ? `?token=${encodeURIComponent(token)}` : ''
+
       if (response.data.streamUrl && response.data.streamUrl.startsWith('/')) {
-        const token = getAuthToken()
-        const authParam = token ? `?token=${encodeURIComponent(token)}` : ''
         response.data.streamUrl = `${API_BASE}${response.data.streamUrl}${authParam}`
+      }
+
+      // Also update subtitle URLs
+      if (response.data.subtitles) {
+        response.data.subtitles = response.data.subtitles.map((sub: SubtitleTrack) => ({
+          ...sub,
+          url: sub.url?.startsWith('/') ? `${API_BASE}${sub.url}${authParam}` : sub.url
+        }))
       }
 
       return response.data

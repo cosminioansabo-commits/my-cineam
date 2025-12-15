@@ -9,6 +9,7 @@ interface SubtitleTrack {
   language: string
   languageCode: string
   displayTitle: string
+  url?: string
 }
 
 interface AudioTrack {
@@ -258,6 +259,67 @@ const subtitleOptions = computed(() => {
     })
   }
   return options
+})
+
+// Load and activate subtitle track
+const loadSubtitle = async (subtitleId: number | null) => {
+  const video = videoRef.value
+  if (!video) return
+
+  // Remove all existing text tracks (except those already in the video)
+  const existingTracks = video.querySelectorAll('track')
+  existingTracks.forEach(track => track.remove())
+
+  // Hide all text tracks
+  for (let i = 0; i < video.textTracks.length; i++) {
+    video.textTracks[i].mode = 'hidden'
+  }
+
+  if (subtitleId === null) {
+    console.log('Subtitles disabled')
+    return
+  }
+
+  // Find the selected subtitle
+  const subtitle = props.subtitles?.find(s => s.id === subtitleId)
+  if (!subtitle?.url) {
+    console.error('Subtitle not found or no URL:', subtitleId)
+    return
+  }
+
+  console.log('Loading subtitle:', subtitle.displayTitle, subtitle.url)
+
+  // Create and add the track element
+  const track = document.createElement('track')
+  track.kind = 'subtitles'
+  track.label = subtitle.displayTitle
+  track.srclang = subtitle.languageCode
+  track.src = subtitle.url
+  track.default = true
+
+  // Add track to video
+  video.appendChild(track)
+
+  // Wait for track to load and then show it
+  track.addEventListener('load', () => {
+    console.log('Subtitle track loaded')
+    // Find and enable this track
+    for (let i = 0; i < video.textTracks.length; i++) {
+      if (video.textTracks[i].label === subtitle.displayTitle) {
+        video.textTracks[i].mode = 'showing'
+        break
+      }
+    }
+  })
+
+  track.addEventListener('error', (e) => {
+    console.error('Subtitle track error:', e)
+  })
+}
+
+// Watch for subtitle selection changes
+watch(selectedSubtitle, (newValue) => {
+  loadSubtitle(newValue)
 })
 
 const setVolume = (value: number | number[]) => {

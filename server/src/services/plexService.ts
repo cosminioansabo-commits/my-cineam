@@ -84,6 +84,7 @@ export interface PlaybackInfo {
   duration: number
   viewOffset: number
   streamUrl: string
+  needsTranscode: boolean // True if using HLS transcoding for incompatible audio
   filePath?: string // Direct file path for streaming
   fileSize?: number // File size in bytes
   mediaInfo: {
@@ -98,6 +99,7 @@ export interface PlaybackInfo {
     language: string
     languageCode: string
     displayTitle: string
+    url: string
   }>
   audioTracks: Array<{
     id: number
@@ -336,7 +338,8 @@ class PlexService {
         id: s.id,
         language: s.language || 'Unknown',
         languageCode: s.languageCode || 'und',
-        displayTitle: s.displayTitle || s.language || 'Unknown'
+        displayTitle: s.displayTitle || s.language || 'Unknown',
+        url: `/api/playback/subtitle/${ratingKey}/${s.id}`
       }))
 
     // Extract audio tracks (streamType 2)
@@ -355,11 +358,29 @@ class PlexService {
     // Get file info for direct streaming
     const filePath = part?.file
     const fileSize = part?.size
+    const container = media.container
+    const audioCodec = media.audioCodec
 
     console.log(`Plex: File path: ${filePath}, size: ${fileSize ? Math.round(fileSize / 1024 / 1024) + 'MB' : 'unknown'}`)
+    console.log(`Plex: Container: ${container}, Audio codec: ${audioCodec}, Video codec: ${media.videoCodec}`)
 
-    // Direct stream URL - serves the file directly
-    const streamUrl = `/api/playback/stream/${ratingKey}`
+    // Check if audio codec is browser-compatible
+    // Browsers support: AAC, MP3, Opus, Vorbis, FLAC (partial), PCM
+    // Browsers DON'T support: DTS, TrueHD, AC3/EAC3 (except Safari), etc.
+    const browserCompatibleAudio = ['aac', 'mp3', 'opus', 'vorbis', 'flac', 'pcm', 'alac']
+    const needsTranscode = !browserCompatibleAudio.includes(audioCodec?.toLowerCase() || '')
+
+    let streamUrl: string
+    if (needsTranscode) {
+      // Use Plex transcoding for incompatible audio codecs
+      // This transcodes audio to AAC while direct streaming video
+      console.log(`Plex: Audio codec '${audioCodec}' needs transcoding, using HLS stream`)
+      streamUrl = `/api/playback/proxy/hls/${ratingKey}/master.m3u8`
+    } else {
+      // Direct file streaming for compatible formats
+      console.log(`Plex: Audio codec '${audioCodec}' is browser-compatible, using direct stream`)
+      streamUrl = `/api/playback/stream/${ratingKey}`
+    }
 
     return {
       ratingKey: metadata.ratingKey,
@@ -370,6 +391,7 @@ class PlexService {
       duration: metadata.duration,
       viewOffset: metadata.viewOffset || 0,
       streamUrl,
+      needsTranscode,
       filePath,
       fileSize,
       mediaInfo: {
