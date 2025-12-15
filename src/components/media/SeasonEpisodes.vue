@@ -121,22 +121,54 @@ watch(() => props.sonarrSeriesId, (newId) => {
   }
 })
 
+// Check if TMDB and Sonarr have mismatched season structures
+// (e.g., TMDB has 1 season with 25 episodes, Sonarr has 2 seasons with 12+13 episodes)
+const hasMismatchedSeasons = computed(() => {
+  if (!sonarrDataLoaded.value) return false
+  const tmdbSeasonCount = props.seasons.filter(s => s.seasonNumber > 0).length
+  const sonarrSeasonCount = sonarrSeasons.value.filter(s => s.seasonNumber > 0).length
+  return sonarrSeasonCount > tmdbSeasonCount
+})
+
+// Calculate absolute episode number for a Sonarr episode (for mapping to TMDB's single-season structure)
+const getAbsoluteEpisodeNumber = (seasonNumber: number, episodeNumber: number): number => {
+  let absoluteEp = 0
+  const sortedSeasons = [...sonarrSeasons.value]
+    .filter(s => s.seasonNumber > 0)
+    .sort((a, b) => a.seasonNumber - b.seasonNumber)
+
+  for (const season of sortedSeasons) {
+    if (season.seasonNumber < seasonNumber) {
+      // Add all episodes from previous seasons
+      absoluteEp += season.statistics?.episodeCount || 0
+    } else if (season.seasonNumber === seasonNumber) {
+      // Add the episode number within this season
+      absoluteEp += episodeNumber
+      break
+    }
+  }
+  return absoluteEp
+}
+
 // Load season details from TMDB when expanded (for episode details like overview, thumbnail)
 const loadSeasonDetails = async (seasonNumber: number) => {
-  if (loadedSeasons.value[seasonNumber] || loadingSeasons.value[seasonNumber]) {
+  // For mismatched seasons, always load TMDB season 1 to get absolute episode data
+  const tmdbSeasonToLoad = hasMismatchedSeasons.value ? 1 : seasonNumber
+
+  if (loadedSeasons.value[tmdbSeasonToLoad] || loadingSeasons.value[tmdbSeasonToLoad]) {
     return
   }
 
-  loadingSeasons.value[seasonNumber] = true
+  loadingSeasons.value[tmdbSeasonToLoad] = true
   try {
-    const details = await getTVSeasonDetails(props.tvId, seasonNumber)
+    const details = await getTVSeasonDetails(props.tvId, tmdbSeasonToLoad)
     if (details) {
-      loadedSeasons.value[seasonNumber] = details
+      loadedSeasons.value[tmdbSeasonToLoad] = details
     }
   } catch (error) {
     console.error('Error loading season details:', error)
   } finally {
-    loadingSeasons.value[seasonNumber] = false
+    loadingSeasons.value[tmdbSeasonToLoad] = false
   }
 }
 
@@ -159,12 +191,23 @@ const getSeasonEpisodes = (seasonNumber: number): Episode[] => {
       .sort((a, b) => a.episodeNumber - b.episodeNumber)
 
     // Get TMDB episodes for additional metadata (thumbnails, overview)
-    const tmdbEpisodes = loadedSeasons.value[seasonNumber]?.episodes || []
-    const tmdbEpMap = new Map(tmdbEpisodes.map(ep => [ep.episodeNumber, ep]))
+    // For mismatched seasons, use absolute episode numbering from TMDB season 1
+    const tmdbSeasonNum = hasMismatchedSeasons.value ? 1 : seasonNumber
+    const tmdbEpisodes = loadedSeasons.value[tmdbSeasonNum]?.episodes || []
 
     // Map Sonarr episodes to display format, enriching with TMDB data
     return sonarrEps.map(sonarrEp => {
-      const tmdbEp = tmdbEpMap.get(sonarrEp.episodeNumber)
+      let tmdbEp: Episode | undefined
+
+      if (hasMismatchedSeasons.value) {
+        // Use absolute episode number to find TMDB episode
+        const absoluteEpNum = getAbsoluteEpisodeNumber(sonarrEp.seasonNumber, sonarrEp.episodeNumber)
+        tmdbEp = tmdbEpisodes.find(ep => ep.episodeNumber === absoluteEpNum)
+      } else {
+        // Direct season/episode match
+        tmdbEp = tmdbEpisodes.find(ep => ep.episodeNumber === sonarrEp.episodeNumber)
+      }
+
       return {
         id: sonarrEp.id,
         seasonNumber: sonarrEp.seasonNumber,
@@ -184,7 +227,9 @@ const getSeasonEpisodes = (seasonNumber: number): Episode[] => {
 }
 
 const isSeasonLoading = (seasonNumber: number): boolean => {
-  return !!loadingSeasons.value[seasonNumber]
+  // For mismatched seasons, check if we're loading TMDB season 1
+  const tmdbSeasonToCheck = hasMismatchedSeasons.value ? 1 : seasonNumber
+  return !!loadingSeasons.value[tmdbSeasonToCheck]
 }
 
 const formatDate = (dateStr: string | null): string => {
