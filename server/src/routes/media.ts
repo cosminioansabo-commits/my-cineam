@@ -256,31 +256,37 @@ router.get('/transcode/:filePath', async (req: Request, res: Response) => {
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Transfer-Encoding', 'chunked')
 
-    // Build ffmpeg arguments - FIXED audio sync
+    // Build ffmpeg arguments - FIXED audio sync for EAC3/DTS sources
     const ffmpegArgs: string[] = [
-      // Seek BEFORE input for fast seeking (input seeking)
+      // Input seeking (fast, seeks to keyframe)
       ...(startTime > 0 ? ['-ss', startTime.toString()] : []),
 
-      // Input file
+      // Input file with format probing
+      '-probesize', '50M',                // Larger probe for accurate duration/sync info
+      '-analyzeduration', '100M',         // More analysis time for complex containers
       '-i', filePath,
 
-      // Map streams
+      // Map streams explicitly with proper sync
       '-map', '0:v:0',                    // First video stream
       '-map', `0:a:${audioTrack}`,        // Selected audio stream
 
       // Video: copy (no re-encoding)
       '-c:v', 'copy',
 
-      // Audio: transcode to AAC with proper sync
+      // Audio: transcode to AAC
       '-c:a', 'aac',
       '-b:a', '192k',
       '-ac', '2',
-      '-ar', '48000',                     // Standard sample rate
+      '-ar', '48000',
 
-      // CRITICAL: Proper timestamp handling (replaces broken aresample filter)
-      '-avoid_negative_ts', 'make_zero',  // Handle negative timestamps from seeking
-      '-fflags', '+genpts+discardcorrupt', // Generate proper PTS, discard corrupt frames
-      '-max_muxing_queue_size', '1024',   // Prevent muxing queue overflow
+      // SYNC FIX: Force audio to start at same PTS as video
+      '-af', 'asetpts=PTS-STARTPTS',      // Reset audio timestamps to start at 0
+
+      // Timestamp handling
+      '-avoid_negative_ts', 'make_zero',
+      '-fflags', '+genpts+discardcorrupt',
+      '-max_muxing_queue_size', '2048',
+      '-shortest',                        // End when shortest stream ends
 
       // Output format for streaming
       '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
@@ -346,7 +352,9 @@ router.post('/hls/start', async (req: Request, res: Response) => {
 
   // Generate unique session ID
   const sessionId = crypto.randomBytes(16).toString('hex')
-  const outputDir = `/tmp/hls-sessions/${sessionId}`
+  // Use /app/hls-sessions for better container compatibility (falls back if /tmp fails)
+  const hlsBaseDir = process.env.HLS_SESSION_DIR || '/tmp/hls-sessions'
+  const outputDir = `${hlsBaseDir}/${sessionId}`
 
   try {
     fs.mkdirSync(outputDir, { recursive: true })
