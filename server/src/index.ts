@@ -8,6 +8,7 @@ import libraryRoutes from './routes/library.js'
 import playbackRoutes from './routes/playback.js'
 import mediaRoutes from './routes/media.js'
 import progressRoutes from './routes/progress.js'
+import hlsProxyRoutes from './routes/hlsProxy.js'
 import { authMiddleware } from './middleware/auth.js'
 import { setupWebSocket } from './websocket/progressSocket.js'
 import { downloadManager } from './services/downloadManager.js'
@@ -42,6 +43,7 @@ app.use(express.json())
 
 // Public routes (no auth required)
 app.use('/api/auth', authRoutes)
+app.use('/api/proxy', hlsProxyRoutes) // HLS proxy for Jellyfin streams (no auth - HLS.js can't send headers)
 
 // Protected routes (auth required)
 app.use('/api/torrents', authMiddleware, torrentRoutes)

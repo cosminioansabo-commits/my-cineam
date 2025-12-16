@@ -308,7 +308,7 @@ class JellyfinService {
 
       // Use proxy URL to bypass browser Private Network Access restrictions
       // The backend will proxy the HLS stream from Jellyfin
-      const hlsUrl = `/api/media/proxy/hls/${itemId}/master.m3u8?${hlsParams.toString()}`
+      const hlsUrl = `/api/proxy/hls/${itemId}/master.m3u8?${hlsParams.toString()}`
 
       // Build direct stream URL (if compatible)
       const directParams = new URLSearchParams({
@@ -337,7 +337,7 @@ class JellyfinService {
         .filter(s => s.Type === 'Subtitle')
         .map((s, idx) => {
           // Build subtitle URL using proxy endpoint
-          const subtitleUrl = `/api/media/proxy/subtitles/${itemId}/${mediaSource.Id}/${s.Index}/Stream.vtt`
+          const subtitleUrl = `/api/proxy/subtitles/${itemId}/${mediaSource.Id}/${s.Index}/Stream.vtt`
 
           return {
             id: idx,
@@ -398,7 +398,7 @@ class JellyfinService {
       AudioCodec: 'aac'
     })
     // Use proxy URL to bypass browser Private Network Access restrictions
-    return `/api/media/proxy/hls/${itemId}/master.m3u8?${params.toString()}`
+    return `/api/proxy/hls/${itemId}/master.m3u8?${params.toString()}`
   }
 
   /**
