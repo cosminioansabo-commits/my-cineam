@@ -281,7 +281,8 @@ class JellyfinService {
       }
 
       const playSessionId = response.data.PlaySessionId
-      const baseUrl = config.jellyfin.url
+      // Use external URL for browser-accessible stream URLs
+      const baseUrl = config.jellyfin.externalUrl
 
       // Build HLS transcoding URL
       const hlsParams = new URLSearchParams({
@@ -386,7 +387,7 @@ class JellyfinService {
    * Get a new HLS URL with different audio track
    */
   getHlsUrlWithAudioTrack(itemId: string, mediaSourceId: string, playSessionId: string, audioStreamIndex: number): string {
-    const baseUrl = config.jellyfin.url
+    const baseUrl = config.jellyfin.externalUrl
     const params = new URLSearchParams({
       api_key: config.jellyfin.apiKey,
       MediaSourceId: mediaSourceId,

@@ -86,7 +86,11 @@ export const config = {
 
   // Jellyfin Media Server settings
   jellyfin: {
+    // Internal URL for backend-to-Jellyfin communication (Docker network)
     url: process.env.JELLYFIN_URL || 'http://localhost:8096',
+    // External URL for browser-to-Jellyfin streaming (accessible from outside Docker)
+    // Falls back to internal URL if not specified
+    externalUrl: process.env.JELLYFIN_EXTERNAL_URL || process.env.JELLYFIN_URL || 'http://localhost:8096',
     apiKey: process.env.JELLYFIN_API_KEY || '',
     enabled: !!process.env.JELLYFIN_URL && !!process.env.JELLYFIN_API_KEY
   }
