@@ -1,6 +1,7 @@
 import path from 'path'
 import { radarrService } from './radarrService.js'
 import { sonarrService } from './sonarrService.js'
+import { jellyfinService } from './jellyfinService.js'
 import { config } from '../config.js'
 
 export interface SubtitleTrack {
@@ -47,6 +48,11 @@ export interface PlaybackInfo {
   hlsSupported: boolean // True if HLS streaming is available
   subtitles: SubtitleTrack[]
   audioTracks: AudioTrack[]
+  // Jellyfin-specific fields (present when using Jellyfin backend)
+  jellyfinItemId?: string
+  jellyfinMediaSourceId?: string
+  jellyfinPlaySessionId?: string
+  streamingBackend?: 'native' | 'jellyfin'
 }
 
 // ============================================================================
@@ -331,6 +337,61 @@ class MediaService {
     const movieFileInfo = movie.movieFile
     const mediaInfo = movieFileInfo.mediaInfo
 
+    // Try Jellyfin first if enabled
+    if (jellyfinService.isEnabled()) {
+      const jellyfinPlayback = await this.getJellyfinMoviePlayback(filePath, movie.title, movieFileInfo.size || 0)
+      if (jellyfinPlayback) {
+        return jellyfinPlayback
+      }
+      console.log(`MediaService: Movie not found in Jellyfin, falling back to native streaming`)
+    }
+
+    // Native streaming fallback
+    return this.getNativeMoviePlayback(movie, filePath, movieFileInfo, mediaInfo)
+  }
+
+  // Get movie playback via Jellyfin
+  private async getJellyfinMoviePlayback(filePath: string, title: string, fileSize: number): Promise<PlaybackInfo | null> {
+    const jellyfinItem = await jellyfinService.findMovieByPath(filePath)
+    if (!jellyfinItem) {
+      return null
+    }
+
+    const playbackInfo = await jellyfinService.getPlaybackInfo(jellyfinItem.Id)
+    if (!playbackInfo) {
+      return null
+    }
+
+    console.log(`MediaService: ${title} (via Jellyfin)`)
+    console.log(`  Jellyfin ID: ${playbackInfo.jellyfinItemId}`)
+    console.log(`  Stream URL: ${playbackInfo.hlsUrl.substring(0, 80)}...`)
+    console.log(`  Audio tracks: ${playbackInfo.audioTracks.length}`)
+    console.log(`  Subtitles: ${playbackInfo.subtitles.length}`)
+
+    return {
+      found: true,
+      title,
+      type: 'movie',
+      filePath,
+      fileSize,
+      duration: playbackInfo.duration,
+      mediaInfo: playbackInfo.mediaInfo,
+      needsTranscode: true, // Jellyfin handles transcoding
+      playbackStrategy: 'transcode',
+      streamUrl: playbackInfo.hlsUrl,
+      directStreamUrl: playbackInfo.directUrl,
+      hlsSupported: true,
+      subtitles: playbackInfo.subtitles,
+      audioTracks: playbackInfo.audioTracks,
+      jellyfinItemId: playbackInfo.jellyfinItemId,
+      jellyfinMediaSourceId: playbackInfo.mediaSourceId,
+      jellyfinPlaySessionId: playbackInfo.playSessionId,
+      streamingBackend: 'jellyfin'
+    }
+  }
+
+  // Native streaming (FFmpeg-based)
+  private getNativeMoviePlayback(movie: any, filePath: string, movieFileInfo: any, mediaInfo: any): PlaybackInfo {
     // Get media info from Radarr
     const audioCodec = mediaInfo?.audioCodec || 'unknown'
     const audioChannels = mediaInfo?.audioChannels || 2
@@ -377,7 +438,7 @@ class MediaService {
       'transcode': 'Full Transcode'
     }[playbackStrategy]
 
-    console.log(`MediaService: ${movie.title}`)
+    console.log(`MediaService: ${movie.title} (native streaming)`)
     console.log(`  File: ${filePath}`)
     console.log(`  Container: ${container}`)
     console.log(`  Video: ${videoCodec} ${width}x${height}`)
@@ -405,7 +466,8 @@ class MediaService {
       directStreamUrl,
       hlsSupported: true, // HLS is now always available
       subtitles,
-      audioTracks
+      audioTracks,
+      streamingBackend: 'native'
     }
   }
 
@@ -450,7 +512,63 @@ class MediaService {
 
     const filePath = episodeFileInfo.path
     const mediaInfo = episodeFileInfo.mediaInfo
+    const title = `${series.title} - S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')} - ${targetEpisode.title}`
 
+    // Try Jellyfin first if enabled
+    if (jellyfinService.isEnabled()) {
+      const jellyfinPlayback = await this.getJellyfinEpisodePlayback(filePath, title, episodeFileInfo.size || 0)
+      if (jellyfinPlayback) {
+        return jellyfinPlayback
+      }
+      console.log(`MediaService: Episode not found in Jellyfin, falling back to native streaming`)
+    }
+
+    // Native streaming fallback
+    return this.getNativeEpisodePlayback(title, filePath, episodeFileInfo, mediaInfo)
+  }
+
+  // Get episode playback via Jellyfin
+  private async getJellyfinEpisodePlayback(filePath: string, title: string, fileSize: number): Promise<PlaybackInfo | null> {
+    const jellyfinItem = await jellyfinService.findEpisodeByPath(filePath)
+    if (!jellyfinItem) {
+      return null
+    }
+
+    const playbackInfo = await jellyfinService.getPlaybackInfo(jellyfinItem.Id)
+    if (!playbackInfo) {
+      return null
+    }
+
+    console.log(`MediaService: ${title} (via Jellyfin)`)
+    console.log(`  Jellyfin ID: ${playbackInfo.jellyfinItemId}`)
+    console.log(`  Stream URL: ${playbackInfo.hlsUrl.substring(0, 80)}...`)
+    console.log(`  Audio tracks: ${playbackInfo.audioTracks.length}`)
+    console.log(`  Subtitles: ${playbackInfo.subtitles.length}`)
+
+    return {
+      found: true,
+      title,
+      type: 'episode',
+      filePath,
+      fileSize,
+      duration: playbackInfo.duration,
+      mediaInfo: playbackInfo.mediaInfo,
+      needsTranscode: true, // Jellyfin handles transcoding
+      playbackStrategy: 'transcode',
+      streamUrl: playbackInfo.hlsUrl,
+      directStreamUrl: playbackInfo.directUrl,
+      hlsSupported: true,
+      subtitles: playbackInfo.subtitles,
+      audioTracks: playbackInfo.audioTracks,
+      jellyfinItemId: playbackInfo.jellyfinItemId,
+      jellyfinMediaSourceId: playbackInfo.mediaSourceId,
+      jellyfinPlaySessionId: playbackInfo.playSessionId,
+      streamingBackend: 'jellyfin'
+    }
+  }
+
+  // Native episode streaming (FFmpeg-based)
+  private getNativeEpisodePlayback(title: string, filePath: string, episodeFileInfo: any, mediaInfo: any): PlaybackInfo {
     // Get media info from Sonarr
     const audioCodec = mediaInfo?.audioCodec || 'unknown'
     const audioChannels = mediaInfo?.audioChannels || 2
@@ -487,15 +605,13 @@ class MediaService {
         break
     }
 
-    const title = `${series.title} - S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')} - ${targetEpisode.title}`
-
     const strategyLabel = {
       'direct': 'Direct Play',
       'remux': 'Remux (video copy + audio transcode)',
       'transcode': 'Full Transcode'
     }[playbackStrategy]
 
-    console.log(`MediaService: ${title}`)
+    console.log(`MediaService: ${title} (native streaming)`)
     console.log(`  File: ${filePath}`)
     console.log(`  Container: ${container}`)
     console.log(`  Video: ${videoCodec} ${width}x${height}`)
@@ -523,7 +639,8 @@ class MediaService {
       directStreamUrl,
       hlsSupported: true,
       subtitles,
-      audioTracks
+      audioTracks,
+      streamingBackend: 'native'
     }
   }
 

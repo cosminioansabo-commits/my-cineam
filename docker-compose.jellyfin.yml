@@ -1,0 +1,61 @@
+version: "3.8"
+
+# =============================================================================
+# JELLYFIN MEDIA SERVER
+# =============================================================================
+# Transcoding backend for My-Cinema with Intel QuickSync support
+#
+# Usage:
+#   docker-compose -f docker-compose.jellyfin.yml up -d
+#
+# Access: http://NAS_IP:8096
+#
+# Initial Setup:
+#   1. Access http://NAS_IP:8096 and create admin account
+#   2. Add libraries:
+#      - Movies: /data/media/movies
+#      - TV Shows: /data/media/tv
+#   3. Enable hardware transcoding:
+#      Dashboard → Playback → Transcoding → Intel QuickSync Video
+#   4. Create API key:
+#      Dashboard → API Keys → Add
+#   5. Add to my-cinema .env:
+#      JELLYFIN_URL=http://jellyfin:8096
+#      JELLYFIN_API_KEY=your-api-key
+# =============================================================================
+
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-Europe/Bucharest}
+      # Jellyfin internal URL for My-Cinema backend communication
+      - JELLYFIN_PublishedServerUrl=http://jellyfin:8096
+    volumes:
+      # Config on SSD for performance
+      - /volume2/docker/jellyfin/config:/config
+      - /volume2/docker/jellyfin/cache:/cache
+      # Media on HDD (read-only for safety)
+      # Must match the paths Radarr/Sonarr use
+      - /volume1/data:/data:ro
+    ports:
+      # Web UI - can be removed after initial setup if not needed
+      - "8096:8096"
+      # Optional: HTTPS (uncomment if using SSL)
+      # - "8920:8920"
+    devices:
+      # Intel QuickSync - REQUIRED for hardware transcoding
+      # This exposes the Intel GPU to the container
+      - /dev/dri:/dev/dri
+    # Grant access to GPU device
+    group_add:
+      - "109"  # render group - may vary, check with: getent group render
+      - "44"   # video group - may vary, check with: getent group video
+
+networks:
+  default:
+    name: my-cinema-network

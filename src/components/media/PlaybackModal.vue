@@ -353,6 +353,10 @@ const displayTitle = computed(() => {
         :playback-strategy="playbackInfo.playbackStrategy"
         :file-path="playbackInfo.filePath"
         :on-progress="handleProgress"
+        :jellyfin-item-id="playbackInfo.jellyfinItemId"
+        :jellyfin-media-source-id="playbackInfo.jellyfinMediaSourceId"
+        :jellyfin-play-session-id="playbackInfo.jellyfinPlaySessionId"
+        :streaming-backend="playbackInfo.streamingBackend"
         @close="handleClose"
         @ended="handleEnded"
       />

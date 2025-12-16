@@ -44,6 +44,11 @@ const props = defineProps<{
   playbackStrategy?: PlaybackStrategy // New: determines how to handle seeking
   filePath?: string // New: for HLS session management
   onProgress?: (timeMs: number, state: 'playing' | 'paused' | 'stopped') => void
+  // Jellyfin-specific props
+  jellyfinItemId?: string
+  jellyfinMediaSourceId?: string
+  jellyfinPlaySessionId?: string
+  streamingBackend?: 'native' | 'jellyfin'
 }>()
 
 const emit = defineEmits<{
@@ -405,6 +410,9 @@ const isTranscodeStream = computed(() => props.streamUrl.includes('/transcode/')
 
 // Check if we're using an HLS stream (.m3u8)
 const isHlsStream = computed(() => props.streamUrl.includes('.m3u8'))
+
+// Check if we're using Jellyfin backend
+const isJellyfinStream = computed(() => props.streamingBackend === 'jellyfin')
 
 // Determine if we should use native seeking or stream reload
 // Direct play and remux (within buffered range) can use native seeking
@@ -839,6 +847,74 @@ const switchAudioTrack = async (streamIndex: number) => {
 
   console.log(`Switching audio track to stream ${streamIndex} at position ${currentPos}s`)
 
+  // Jellyfin audio track switching
+  if (isJellyfinStream.value && props.jellyfinItemId && props.jellyfinMediaSourceId && props.jellyfinPlaySessionId) {
+    const newHlsUrl = await mediaService.getJellyfinAudioTrackUrl(
+      props.jellyfinItemId,
+      streamIndex,
+      props.jellyfinMediaSourceId,
+      props.jellyfinPlaySessionId
+    )
+
+    if (newHlsUrl && videoRef.value) {
+      // Cleanup existing HLS instance
+      if (hls.value) {
+        hls.value.destroy()
+        hls.value = null
+      }
+
+      // Initialize new HLS stream with different audio track
+      if (Hls.isSupported()) {
+        hls.value = new Hls({
+          enableWorker: true,
+          lowLatencyMode: false,
+          backBufferLength: 90,
+          maxBufferLength: 60,
+        })
+
+        hls.value.loadSource(newHlsUrl)
+        hls.value.attachMedia(videoRef.value)
+
+        hls.value.on(Hls.Events.MANIFEST_PARSED, () => {
+          isLoading.value = false
+          if (videoRef.value) {
+            // Seek to the position we were at
+            videoRef.value.currentTime = currentPos
+            videoRef.value.playbackRate = currentPlaybackRate
+            if (wasPlaying) {
+              videoRef.value.play()
+            }
+          }
+        })
+
+        hls.value.on(Hls.Events.ERROR, (_event, data) => {
+          console.error('HLS error during Jellyfin audio switch:', data)
+          if (data.fatal) {
+            isLoading.value = false
+          }
+        })
+      } else if (videoRef.value.canPlayType('application/vnd.apple.mpegurl')) {
+        // Safari native HLS
+        videoRef.value.src = newHlsUrl
+        videoRef.value.addEventListener('loadedmetadata', () => {
+          isLoading.value = false
+          if (videoRef.value) {
+            videoRef.value.currentTime = currentPos
+            videoRef.value.playbackRate = currentPlaybackRate
+            if (wasPlaying) {
+              videoRef.value.play()
+            }
+          }
+        }, { once: true })
+      }
+    } else {
+      console.error('Failed to get Jellyfin audio track URL')
+      isLoading.value = false
+    }
+    return
+  }
+
+  // Native audio switching (non-Jellyfin)
   // For audio switching, we reload the transcode stream with new audio track
   if (props.playbackStrategy === 'remux' || props.playbackStrategy === 'transcode') {
     // Use HLS session for smooth audio switching
@@ -919,10 +995,22 @@ const toggleFullscreen = async () => {
   }
 }
 
-// Report progress to parent
+// Report progress to parent and Jellyfin
 const reportProgress = (state: 'playing' | 'paused' | 'stopped') => {
+  const positionMs = Math.floor(currentTime.value * 1000)
+
+  // Report to parent callback
   if (props.onProgress && currentTime.value > 0) {
-    props.onProgress(Math.floor(currentTime.value * 1000), state)
+    props.onProgress(positionMs, state)
+  }
+
+  // Report to Jellyfin if using Jellyfin backend
+  if (isJellyfinStream.value && props.jellyfinItemId) {
+    if (state === 'stopped') {
+      mediaService.reportJellyfinStopped(props.jellyfinItemId, positionMs)
+    } else {
+      mediaService.reportJellyfinProgress(props.jellyfinItemId, positionMs, state === 'paused')
+    }
   }
 }
 

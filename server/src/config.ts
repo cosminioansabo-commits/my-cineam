@@ -82,5 +82,12 @@ export const config = {
     url: process.env.PLEX_URL || 'http://localhost:32400',
     token: process.env.PLEX_TOKEN || '',
     enabled: !!process.env.PLEX_URL && !!process.env.PLEX_TOKEN
+  },
+
+  // Jellyfin Media Server settings
+  jellyfin: {
+    url: process.env.JELLYFIN_URL || 'http://localhost:8096',
+    apiKey: process.env.JELLYFIN_API_KEY || '',
+    enabled: !!process.env.JELLYFIN_URL && !!process.env.JELLYFIN_API_KEY
   }
 }

@@ -4,6 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
 import { mediaService } from '../services/mediaService.js'
+import { jellyfinService } from '../services/jellyfinService.js'
 
 const router = Router()
 
@@ -106,7 +107,87 @@ const getContentType = (container: string): string => {
 // Check if media service is available
 router.get('/status', async (req: Request, res: Response) => {
   const enabled = mediaService.isEnabled()
-  res.json({ enabled, connected: enabled })
+  const jellyfinEnabled = jellyfinService.isEnabled()
+
+  res.json({
+    enabled,
+    connected: enabled,
+    jellyfin: {
+      enabled: jellyfinEnabled,
+      connected: jellyfinEnabled ? await jellyfinService.testConnection() : false
+    }
+  })
+})
+
+// ============================================================================
+// JELLYFIN INTEGRATION ENDPOINTS
+// ============================================================================
+
+// Get Jellyfin stream URL with specific audio track
+router.get('/jellyfin/audio/:itemId/:audioIndex', async (req: Request, res: Response) => {
+  const { itemId, audioIndex } = req.params
+  const { mediaSourceId, playSessionId } = req.query
+
+  if (!jellyfinService.isEnabled()) {
+    res.status(503).json({ error: 'Jellyfin not enabled' })
+    return
+  }
+
+  if (!mediaSourceId || !playSessionId) {
+    res.status(400).json({ error: 'mediaSourceId and playSessionId required' })
+    return
+  }
+
+  const hlsUrl = jellyfinService.getHlsUrlWithAudioTrack(
+    itemId,
+    mediaSourceId as string,
+    playSessionId as string,
+    parseInt(audioIndex, 10)
+  )
+
+  res.json({ hlsUrl })
+})
+
+// Report playback progress to Jellyfin
+router.post('/jellyfin/progress', async (req: Request, res: Response) => {
+  const { itemId, positionMs, isPaused } = req.body
+
+  if (!jellyfinService.isEnabled()) {
+    res.status(503).json({ error: 'Jellyfin not enabled' })
+    return
+  }
+
+  // Convert ms to ticks (1 tick = 10,000 nanoseconds = 0.01 ms)
+  const positionTicks = positionMs * 10000
+
+  await jellyfinService.reportProgress(itemId, positionTicks, isPaused || false)
+  res.json({ success: true })
+})
+
+// Report playback stopped to Jellyfin
+router.post('/jellyfin/stopped', async (req: Request, res: Response) => {
+  const { itemId, positionMs } = req.body
+
+  if (!jellyfinService.isEnabled()) {
+    res.status(503).json({ error: 'Jellyfin not enabled' })
+    return
+  }
+
+  const positionTicks = positionMs * 10000
+
+  await jellyfinService.reportStopped(itemId, positionTicks)
+  res.json({ success: true })
+})
+
+// Trigger Jellyfin library refresh
+router.post('/jellyfin/refresh', async (req: Request, res: Response) => {
+  if (!jellyfinService.isEnabled()) {
+    res.status(503).json({ error: 'Jellyfin not enabled' })
+    return
+  }
+
+  await jellyfinService.refreshLibrary()
+  res.json({ success: true })
 })
 
 // Get playback info for a movie by TMDB ID
@@ -257,17 +338,21 @@ router.get('/transcode/:filePath', async (req: Request, res: Response) => {
     res.setHeader('Transfer-Encoding', 'chunked')
 
     // Build ffmpeg arguments - FIXED audio sync for EAC3/DTS sources
-    // Audio is AHEAD of video, so we need to DELAY the audio
+    // Audio is AHEAD of video, so we delay audio using itsoffset
     const ffmpegArgs: string[] = [
       // Input seeking (fast, seeks to keyframe) - BEFORE input for speed
       ...(startTime > 0 ? ['-ss', startTime.toString()] : []),
 
-      // Input file
+      // Video input (no offset)
       '-i', filePath,
 
-      // Map streams explicitly
-      '-map', '0:v:0',                    // First video stream
-      '-map', `0:a:${audioTrack}`,        // Selected audio stream
+      // Audio input with offset (positive = delay audio)
+      '-itsoffset', '0.5',
+      '-i', filePath,
+
+      // Map video from first input, audio from second (offset) input
+      '-map', '0:v:0',                    // Video from input 0
+      '-map', `1:a:${audioTrack}`,        // Audio from input 1 (offset by 0.5s)
 
       // Video: copy (no re-encoding needed for remux)
       '-c:v', 'copy',
@@ -277,10 +362,6 @@ router.get('/transcode/:filePath', async (req: Request, res: Response) => {
       '-b:a', '192k',
       '-ac', '2',
       '-ar', '48000',
-
-      // AUDIO SYNC FIX: Delay audio by ~200ms to compensate for EAC3/Atmos priming
-      // The adelay filter adds delay in milliseconds to the audio stream
-      '-af', 'adelay=200|200',
 
       // Timestamp handling
       '-avoid_negative_ts', 'make_zero',

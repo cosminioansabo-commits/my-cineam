@@ -64,6 +64,11 @@ export interface PlaybackInfo {
   hlsSupported?: boolean // True if HLS streaming is available
   subtitles?: SubtitleTrack[]
   audioTracks?: AudioTrack[]
+  // Jellyfin-specific fields
+  jellyfinItemId?: string
+  jellyfinMediaSourceId?: string
+  jellyfinPlaySessionId?: string
+  streamingBackend?: 'native' | 'jellyfin'
 }
 
 // HLS Session management
@@ -167,29 +172,35 @@ export const mediaService = {
         return null
       }
 
-      // Prepend API base URL to relative URLs and add auth token
+      // Check if using Jellyfin backend
+      const isJellyfin = response.data.streamingBackend === 'jellyfin'
+
+      // Jellyfin URLs are already absolute, native URLs need to be prefixed
       const token = getAuthToken()
       const authParam = token ? `?token=${encodeURIComponent(token)}` : ''
 
-      if (response.data.streamUrl && response.data.streamUrl.startsWith('/')) {
-        response.data.streamUrl = `${API_BASE}${response.data.streamUrl}${authParam}`
-      }
+      if (!isJellyfin) {
+        // Native streaming - prepend API base URL to relative URLs
+        if (response.data.streamUrl && response.data.streamUrl.startsWith('/')) {
+          response.data.streamUrl = `${API_BASE}${response.data.streamUrl}${authParam}`
+        }
 
-      // Also update direct stream URL if present
-      if (response.data.directStreamUrl && response.data.directStreamUrl.startsWith('/')) {
-        response.data.directStreamUrl = `${API_BASE}${response.data.directStreamUrl}${authParam}`
-      }
+        if (response.data.directStreamUrl && response.data.directStreamUrl.startsWith('/')) {
+          response.data.directStreamUrl = `${API_BASE}${response.data.directStreamUrl}${authParam}`
+        }
 
-      // Also update subtitle URLs
-      if (response.data.subtitles) {
-        response.data.subtitles = response.data.subtitles.map((sub: SubtitleTrack) => ({
-          ...sub,
-          url: `/api/media/subtitle/${encodeURIComponent(`${sub.streamIndex}:${response.data.filePath}`)}`,
-        })).map((sub: SubtitleTrack) => ({
-          ...sub,
-          url: sub.url?.startsWith('/') ? `${API_BASE}${sub.url}${authParam}` : sub.url
-        }))
+        // Native subtitle URLs
+        if (response.data.subtitles) {
+          response.data.subtitles = response.data.subtitles.map((sub: SubtitleTrack) => ({
+            ...sub,
+            url: `/api/media/subtitle/${encodeURIComponent(`${sub.streamIndex}:${response.data.filePath}`)}`,
+          })).map((sub: SubtitleTrack) => ({
+            ...sub,
+            url: sub.url?.startsWith('/') ? `${API_BASE}${sub.url}${authParam}` : sub.url
+          }))
+        }
       }
+      // Jellyfin URLs (streamUrl, directStreamUrl, subtitle urls) are already absolute
 
       return response.data
     } catch (error) {
@@ -213,34 +224,82 @@ export const mediaService = {
         return null
       }
 
-      // Prepend API base URL to relative URLs and add auth token
+      // Check if using Jellyfin backend
+      const isJellyfin = response.data.streamingBackend === 'jellyfin'
+
+      // Jellyfin URLs are already absolute, native URLs need to be prefixed
       const token = getAuthToken()
       const authParam = token ? `?token=${encodeURIComponent(token)}` : ''
 
-      if (response.data.streamUrl && response.data.streamUrl.startsWith('/')) {
-        response.data.streamUrl = `${API_BASE}${response.data.streamUrl}${authParam}`
-      }
+      if (!isJellyfin) {
+        // Native streaming - prepend API base URL to relative URLs
+        if (response.data.streamUrl && response.data.streamUrl.startsWith('/')) {
+          response.data.streamUrl = `${API_BASE}${response.data.streamUrl}${authParam}`
+        }
 
-      // Also update direct stream URL if present
-      if (response.data.directStreamUrl && response.data.directStreamUrl.startsWith('/')) {
-        response.data.directStreamUrl = `${API_BASE}${response.data.directStreamUrl}${authParam}`
-      }
+        if (response.data.directStreamUrl && response.data.directStreamUrl.startsWith('/')) {
+          response.data.directStreamUrl = `${API_BASE}${response.data.directStreamUrl}${authParam}`
+        }
 
-      // Also update subtitle URLs
-      if (response.data.subtitles) {
-        response.data.subtitles = response.data.subtitles.map((sub: SubtitleTrack) => ({
-          ...sub,
-          url: `/api/media/subtitle/${encodeURIComponent(`${sub.streamIndex}:${response.data.filePath}`)}`,
-        })).map((sub: SubtitleTrack) => ({
-          ...sub,
-          url: sub.url?.startsWith('/') ? `${API_BASE}${sub.url}${authParam}` : sub.url
-        }))
+        // Native subtitle URLs
+        if (response.data.subtitles) {
+          response.data.subtitles = response.data.subtitles.map((sub: SubtitleTrack) => ({
+            ...sub,
+            url: `/api/media/subtitle/${encodeURIComponent(`${sub.streamIndex}:${response.data.filePath}`)}`,
+          })).map((sub: SubtitleTrack) => ({
+            ...sub,
+            url: sub.url?.startsWith('/') ? `${API_BASE}${sub.url}${authParam}` : sub.url
+          }))
+        }
       }
+      // Jellyfin URLs (streamUrl, directStreamUrl, subtitle urls) are already absolute
 
       return response.data
     } catch (error) {
       console.error('Error fetching episode playback:', error)
       return null
+    }
+  },
+
+  /**
+   * Get Jellyfin stream URL with different audio track
+   */
+  async getJellyfinAudioTrackUrl(
+    itemId: string,
+    audioIndex: number,
+    mediaSourceId: string,
+    playSessionId: string
+  ): Promise<string | null> {
+    try {
+      const response = await api.get(`/jellyfin/audio/${itemId}/${audioIndex}`, {
+        params: { mediaSourceId, playSessionId }
+      })
+      return response.data.hlsUrl
+    } catch (error) {
+      console.error('Error getting Jellyfin audio track URL:', error)
+      return null
+    }
+  },
+
+  /**
+   * Report playback progress to Jellyfin
+   */
+  async reportJellyfinProgress(itemId: string, positionMs: number, isPaused: boolean): Promise<void> {
+    try {
+      await api.post('/jellyfin/progress', { itemId, positionMs, isPaused })
+    } catch (error) {
+      // Ignore progress reporting errors
+    }
+  },
+
+  /**
+   * Report playback stopped to Jellyfin
+   */
+  async reportJellyfinStopped(itemId: string, positionMs: number): Promise<void> {
+    try {
+      await api.post('/jellyfin/stopped', { itemId, positionMs })
+    } catch (error) {
+      // Ignore stop reporting errors
     }
   }
 }
