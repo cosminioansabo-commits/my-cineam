@@ -40,19 +40,20 @@ router.get('/hls/:itemId/master.m3u8', async (req: Request, res: Response) => {
 
     // Rewrite URLs in the manifest to point to our proxy
     let manifest = response.data as string
+    const backendUrl = config.externalUrl.replace(/\/$/, '')
 
     // Rewrite segment URLs to go through our proxy
     // Jellyfin returns relative URLs like: hls1/main/0.ts
     manifest = manifest.replace(
       /^(hls\d+\/[^\n]+)$/gm,
-      `/api/proxy/hls/${itemId}/$1?${params.toString()}`
+      `${backendUrl}/api/proxy/hls/${itemId}/$1?${params.toString()}`
     )
 
     // Also handle absolute URLs if Jellyfin returns them
     const jellyfinBaseUrl = config.jellyfin.url
     manifest = manifest.replace(
       new RegExp(jellyfinBaseUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '/Videos/' + itemId + '/', 'g'),
-      `/api/proxy/hls/${itemId}/`
+      `${backendUrl}/api/proxy/hls/${itemId}/`
     )
 
     res.setHeader('Content-Type', 'application/vnd.apple.mpegurl')
@@ -93,6 +94,7 @@ router.get('/hls/:itemId/:hlsPath(*).m3u8', async (req: Request, res: Response) 
     })
 
     let manifest = response.data as string
+    const backendUrl = config.externalUrl.replace(/\/$/, '')
 
     // Rewrite segment URLs - they're typically relative like "0.ts", "1.ts"
     // Get the directory path for relative URL resolution
@@ -101,7 +103,7 @@ router.get('/hls/:itemId/:hlsPath(*).m3u8', async (req: Request, res: Response) 
     // Rewrite .ts segment references
     manifest = manifest.replace(
       /^(\d+\.ts.*)$/gm,
-      `/api/proxy/hls/${itemId}/${dirPath}$1`
+      `${backendUrl}/api/proxy/hls/${itemId}/${dirPath}$1`
     )
 
     res.setHeader('Content-Type', 'application/vnd.apple.mpegurl')

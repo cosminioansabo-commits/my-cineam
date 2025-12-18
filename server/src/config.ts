@@ -25,6 +25,9 @@ export const config = {
   port: parseInt(process.env.PORT || '3001', 10),
   downloadPath,
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  // External URL for the backend API (used for HLS proxy URLs that browsers need to access)
+  // This should be the publicly accessible URL of the backend
+  externalUrl: process.env.BACKEND_EXTERNAL_URL || process.env.VITE_TORRENT_API_URL || `http://localhost:${process.env.PORT || '3001'}`,
 
   // WebTorrent settings
   torrent: {
