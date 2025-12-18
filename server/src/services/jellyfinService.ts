@@ -102,6 +102,7 @@ class JellyfinService {
     })
   }
 
+
   isEnabled(): boolean {
     return config.jellyfin.enabled
   }
