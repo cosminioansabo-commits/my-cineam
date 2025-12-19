@@ -6,8 +6,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies (skip optional deps like sharp which is only for local icon generation)
+RUN npm ci --omit=optional
 
 # Copy source code
 COPY . .
