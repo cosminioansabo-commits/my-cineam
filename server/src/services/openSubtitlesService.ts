@@ -44,6 +44,10 @@ class OpenSubtitlesService {
     return !!this.apiKey
   }
 
+  isDownloadEnabled(): boolean {
+    return !!this.apiKey && !!process.env.OPENSUBTITLES_USERNAME && !!process.env.OPENSUBTITLES_PASSWORD
+  }
+
   /**
    * Login to get a token (required for downloads)
    */
@@ -146,25 +150,33 @@ class OpenSubtitlesService {
    * Get download link for a subtitle file
    */
   async getDownloadLink(fileId: number): Promise<string | null> {
-    if (!this.apiKey) return null
+    if (!this.apiKey) {
+      console.error('OpenSubtitles: API key not configured')
+      return null
+    }
 
-    await this.ensureLoggedIn()
+    const loggedIn = await this.ensureLoggedIn()
+    if (!loggedIn) {
+      console.error('OpenSubtitles: Not logged in - username/password required for downloads')
+      return null
+    }
 
     try {
-      const headers: Record<string, string> = {}
-      if (this.token) {
-        headers['Authorization'] = `Bearer ${this.token}`
-      }
-
+      console.log('OpenSubtitles: Requesting download link for file:', fileId)
       const response = await this.client.post(
         '/download',
         { file_id: fileId },
-        { headers }
+        {
+          headers: {
+            'Authorization': `Bearer ${this.token}`
+          }
+        }
       )
 
+      console.log('OpenSubtitles: Download link response:', response.data)
       return response.data.link || null
     } catch (error: any) {
-      console.error('OpenSubtitles download link error:', error.response?.data || error.message)
+      console.error('OpenSubtitles download link error:', error.response?.status, error.response?.data || error.message)
       return null
     }
   }

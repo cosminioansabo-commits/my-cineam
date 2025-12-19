@@ -6,9 +6,11 @@ const router = Router()
 // Check if subtitle search is available (requires OpenSubtitles API key)
 router.get('/status', async (req: Request, res: Response) => {
   const enabled = openSubtitlesService.isEnabled()
+  const downloadEnabled = openSubtitlesService.isDownloadEnabled()
 
   res.json({
     enabled,
+    downloadEnabled,
     languages: enabled ? openSubtitlesService.getLanguages() : [],
   })
 })
@@ -76,7 +78,12 @@ router.post('/download-link', async (req: Request, res: Response) => {
 // Download subtitle content
 router.post('/download', async (req: Request, res: Response) => {
   if (!openSubtitlesService.isEnabled()) {
-    res.status(503).json({ error: 'OpenSubtitles not configured' })
+    res.status(503).json({ error: 'OpenSubtitles API key not configured' })
+    return
+  }
+
+  if (!openSubtitlesService.isDownloadEnabled()) {
+    res.status(503).json({ error: 'OpenSubtitles username/password not configured - required for downloads' })
     return
   }
 
@@ -93,7 +100,7 @@ router.post('/download', async (req: Request, res: Response) => {
     if (content) {
       res.json({ success: true, content })
     } else {
-      res.status(500).json({ error: 'Failed to download subtitle' })
+      res.status(500).json({ error: 'Failed to download subtitle - check server logs' })
     }
   } catch (error: any) {
     console.error('Subtitle download error:', error.message)
