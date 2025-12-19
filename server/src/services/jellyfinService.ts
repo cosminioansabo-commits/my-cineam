@@ -285,7 +285,13 @@ class JellyfinService {
       // Use external URL for browser-accessible stream URLs
       const baseUrl = config.jellyfin.externalUrl
 
+      // Get video stream info to determine optimal transcoding settings
+      const videoStream = mediaSource.MediaStreams.find(s => s.Type === 'Video')
+      const isHEVC = videoStream?.Codec?.toLowerCase() === 'hevc' || videoStream?.Codec?.toLowerCase() === 'h265'
+      const is4K = (videoStream?.Width || 0) >= 3840
+
       // Build HLS transcoding URL - use proxy endpoint to bypass Private Network Access
+      // For 4K HEVC content, try to preserve quality by using higher bitrate
       const hlsParams = new URLSearchParams({
         api_key: config.jellyfin.apiKey,
         MediaSourceId: mediaSource.Id,
@@ -293,14 +299,17 @@ class JellyfinService {
         AudioStreamIndex: String(options.audioStreamIndex ?? 0),
         SubtitleStreamIndex: String(options.subtitleStreamIndex ?? -1),
         SubtitleMethod: 'Encode', // Burn-in subtitles for ASS/PGS
-        MaxStreamingBitrate: String(options.maxStreamingBitrate || 100000000),
-        TranscodingMaxAudioChannels: '2',
+        // Higher bitrate for 4K content (120 Mbps for 4K, 40 Mbps for 1080p)
+        MaxStreamingBitrate: String(options.maxStreamingBitrate || (is4K ? 120000000 : 40000000)),
+        TranscodingMaxAudioChannels: '6', // Allow 5.1 surround
         SegmentContainer: 'ts',
         MinSegments: '1',
-        BreakOnNonKeyFrames: 'true',
-        VideoCodec: 'h264',
-        AudioCodec: 'aac',
-        TranscodeReasons: 'ContainerNotSupported,AudioCodecNotSupported'
+        BreakOnNonKeyFrames: 'false', // Better quality, only break on keyframes
+        // Allow both H.264 and HEVC - browser will pick what it supports
+        VideoCodec: 'h264,hevc,h265',
+        AudioCodec: 'aac,ac3,eac3',
+        // Only transcode if codec is not supported
+        TranscodeReasons: 'AudioCodecNotSupported'
       })
 
       if (options.startTimeTicks) {
@@ -353,8 +362,7 @@ class JellyfinService {
           }
         })
 
-      // Get video stream info
-      const videoStream = mediaSource.MediaStreams.find(s => s.Type === 'Video')
+      // Get audio stream info (videoStream already defined above)
       const audioStream = mediaSource.MediaStreams.find(s => s.Type === 'Audio')
 
       return {
@@ -392,13 +400,14 @@ class JellyfinService {
       AudioStreamIndex: String(audioStreamIndex),
       SubtitleStreamIndex: '-1',
       SubtitleMethod: 'Encode',
-      MaxStreamingBitrate: '100000000',
-      TranscodingMaxAudioChannels: '2',
+      MaxStreamingBitrate: '120000000', // High bitrate for quality
+      TranscodingMaxAudioChannels: '6', // Allow 5.1 surround
       SegmentContainer: 'ts',
       MinSegments: '1',
-      BreakOnNonKeyFrames: 'true',
-      VideoCodec: 'h264',
-      AudioCodec: 'aac'
+      BreakOnNonKeyFrames: 'false',
+      VideoCodec: 'h264,hevc,h265',
+      AudioCodec: 'aac,ac3,eac3',
+      TranscodeReasons: 'AudioCodecNotSupported'
     })
     // Use proxy URL to bypass browser Private Network Access restrictions
     const backendUrl = config.externalUrl.replace(/\/$/, '')
