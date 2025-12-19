@@ -7,7 +7,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies (skip optional deps like sharp which is only for local icon generation)
-RUN npm ci --omit=optional
+# Using npm install instead of npm ci due to peer dependency conflicts in workbox-build
+RUN npm install --omit=optional --ignore-scripts && npm cache clean --force
 
 # Copy source code
 COPY . .
