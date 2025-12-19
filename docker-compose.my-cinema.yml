@@ -1,19 +1,22 @@
-version: "3.8"
-
 # =============================================================================
 # MY-CINEMA APP
 # =============================================================================
-# Frontend + Backend - deploy after all other services are configured
+# Frontend + Backend deployment
 #
 # Prerequisites:
-#   1. Login to GitHub Container Registry:
+#   1. All other services running (prowlarr, radarr, sonarr, qbittorrent, jellyfin)
+#   2. Login to GitHub Container Registry:
 #      echo "YOUR_GITHUB_TOKEN" | docker login ghcr.io -u YOUR_USERNAME --password-stdin
-#   2. Create .env file with all API keys
+#   3. Create .env file from .env.my-cinema.example
 #
 # Usage:
-#   docker-compose -f docker-compose.my-cinema.yml up -d
+#   docker compose -f docker-compose.my-cinema.yml up -d
 #
-# Access: http://NAS_IP (port 80)
+# Access:
+#   Local:  http://NAS_IP:8081
+#   Remote: http://your-domain:8081 (requires port forwarding)
+#
+# For remote video playback, also forward port 8096 (Jellyfin)
 # =============================================================================
 
 services:
@@ -35,30 +38,33 @@ services:
     ports:
       - "3001:3001"
     environment:
+      # Server
       - PORT=3001
       - CORS_ORIGIN=http://${NAS_IP}
       - DOWNLOAD_PATH=/data/downloads
+      - BACKEND_EXTERNAL_URL=${BACKEND_EXTERNAL_URL:-http://${NAS_IP}:3001}
+      # Torrent services (use container names)
       - PROWLARR_URL=http://prowlarr:9696
       - PROWLARR_API_KEY=${PROWLARR_API_KEY}
       - QBITTORRENT_URL=http://qbittorrent:8080
       - QBITTORRENT_USERNAME=${QBITTORRENT_USERNAME}
       - QBITTORRENT_PASSWORD=${QBITTORRENT_PASSWORD}
+      - SEARCH_PROVIDERS=${SEARCH_PROVIDERS:-prowlarr}
+      # Media library services (use container names)
       - RADARR_URL=http://radarr:7878
       - RADARR_API_KEY=${RADARR_API_KEY}
       - SONARR_URL=http://sonarr:8989
       - SONARR_API_KEY=${SONARR_API_KEY}
-      - SEARCH_PROVIDERS=prowlarr
+      # Jellyfin (use container name for internal, external URL for browser access)
+      - JELLYFIN_URL=http://jellyfin:8096
+      - JELLYFIN_EXTERNAL_URL=${JELLYFIN_EXTERNAL_URL}
+      - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
+      # Authentication
       - JWT_SECRET=${JWT_SECRET}
       - APP_PASSWORD_HASH=${APP_PASSWORD_HASH}
       - TOKEN_EXPIRY=7d
-      - PLEX_URL=${PLEX_URL}
-      - PLEX_TOKEN=${PLEX_TOKEN}
-      - JELLYFIN_URL=${JELLYFIN_URL:-http://jellyfin:8096}
-      - JELLYFIN_EXTERNAL_URL=${JELLYFIN_EXTERNAL_URL:-http://192.168.0.82:8096}
-      - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
     volumes:
       - /volume1/data:/data
-      - /tmp/hls-sessions:/tmp/hls-sessions
     devices:
       - /dev/dri:/dev/dri
     labels:

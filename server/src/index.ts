@@ -5,7 +5,6 @@ import { config } from './config.js'
 import authRoutes from './routes/auth.js'
 import torrentRoutes from './routes/torrents.js'
 import libraryRoutes from './routes/library.js'
-import playbackRoutes from './routes/playback.js'
 import mediaRoutes from './routes/media.js'
 import progressRoutes from './routes/progress.js'
 import hlsProxyRoutes from './routes/hlsProxy.js'
@@ -48,9 +47,8 @@ app.use('/api/proxy', hlsProxyRoutes) // HLS proxy for Jellyfin streams (no auth
 // Protected routes (auth required)
 app.use('/api/torrents', authMiddleware, torrentRoutes)
 app.use('/api/library', authMiddleware, libraryRoutes)
-app.use('/api/playback', authMiddleware, playbackRoutes)
-app.use('/api/media', authMiddleware, mediaRoutes) // Plex-free media routes
-app.use('/api/progress', authMiddleware, progressRoutes) // Watch progress tracking
+app.use('/api/media', authMiddleware, mediaRoutes)
+app.use('/api/progress', authMiddleware, progressRoutes)
 
 // Health check
 app.get('/health', (req, res) => {
@@ -81,8 +79,7 @@ server.listen(config.port, () => {
   console.log(`Download path: ${config.downloadPath}`)
   console.log(`CORS origin: ${config.corsOrigin}`)
   console.log(`Auth enabled: ${config.auth.enabled}`)
-  console.log(`Plex enabled: ${config.plex.enabled}`)
+  console.log(`Jellyfin enabled: ${config.jellyfin.enabled}`)
   console.log(`Radarr enabled: ${config.radarr.enabled}`)
   console.log(`Sonarr enabled: ${config.sonarr.enabled}`)
-  console.log(`Media API: /api/media (Plex-free, uses Radarr/Sonarr + ffmpeg)`)
 })

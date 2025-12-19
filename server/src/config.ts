@@ -80,13 +80,6 @@ export const config = {
     enabled: !!process.env.APP_PASSWORD_HASH
   },
 
-  // Plex Media Server settings
-  plex: {
-    url: process.env.PLEX_URL || 'http://localhost:32400',
-    token: process.env.PLEX_TOKEN || '',
-    enabled: !!process.env.PLEX_URL && !!process.env.PLEX_TOKEN
-  },
-
   // Jellyfin Media Server settings
   jellyfin: {
     // Internal URL for backend-to-Jellyfin communication (Docker network)
