@@ -8,6 +8,7 @@ import libraryRoutes from './routes/library.js'
 import mediaRoutes from './routes/media.js'
 import progressRoutes from './routes/progress.js'
 import hlsProxyRoutes from './routes/hlsProxy.js'
+import subtitleRoutes from './routes/subtitles.js'
 import { authMiddleware } from './middleware/auth.js'
 import { setupWebSocket } from './websocket/progressSocket.js'
 import { downloadManager } from './services/downloadManager.js'
@@ -49,6 +50,7 @@ app.use('/api/torrents', authMiddleware, torrentRoutes)
 app.use('/api/library', authMiddleware, libraryRoutes)
 app.use('/api/media', authMiddleware, mediaRoutes)
 app.use('/api/progress', authMiddleware, progressRoutes)
+app.use('/api/subtitles', authMiddleware, subtitleRoutes)
 
 // Health check
 app.get('/health', (req, res) => {

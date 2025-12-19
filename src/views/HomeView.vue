@@ -11,7 +11,6 @@ import {
   getTopRatedMovies,
   getTopRatedTV,
   getNowPlayingMovies,
-  getUpcomingMovies,
   getBackdropUrl,
   findByExternalId,
   getMediaDetails,
@@ -31,7 +30,6 @@ const popularTV = ref<Media[]>([])
 const topRatedMovies = ref<Media[]>([])
 const topRatedTV = ref<Media[]>([])
 const nowPlaying = ref<Media[]>([])
-const upcoming = ref<Media[]>([])
 const libraryItems = ref<Media[]>([])
 const continueWatchingItems = ref<CarouselItem[]>([])
 
@@ -185,7 +183,6 @@ onMounted(async () => {
       topMovies,
       topTV,
       playing,
-      upcomingMovies,
     ] = await Promise.all([
       getTrending('all', 'week'),
       getPopularMovies(),
@@ -193,7 +190,6 @@ onMounted(async () => {
       getTopRatedMovies(),
       getTopRatedTV(),
       getNowPlayingMovies(),
-      getUpcomingMovies(),
     ])
 
     trendingAll.value = trending
@@ -202,7 +198,6 @@ onMounted(async () => {
     topRatedMovies.value = topMovies
     topRatedTV.value = topTV
     nowPlaying.value = playing
-    upcoming.value = upcomingMovies
   } catch (error) {
     console.error('Failed to load content:', error)
   } finally {
@@ -344,13 +339,6 @@ onMounted(async () => {
       <MediaCarousel
         title="Top Rated TV Shows"
         :items="topRatedTV"
-        :loading="isLoadingContent"
-      />
-
-      <!-- Coming Soon -->
-      <MediaCarousel
-        title="Coming Soon"
-        :items="upcoming"
         :loading="isLoadingContent"
       />
     </div>

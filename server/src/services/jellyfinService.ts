@@ -547,7 +547,6 @@ class JellyfinService {
       console.error('Jellyfin refreshLibrary error:', error)
     }
   }
-
   /**
    * Device profile for browser playback
    * Matches Jellyfin web client profile for proper transcoding and HDR handling

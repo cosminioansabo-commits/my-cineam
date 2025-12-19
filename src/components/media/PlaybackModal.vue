@@ -351,6 +351,10 @@ const displayTitle = computed(() => {
         :jellyfin-item-id="playbackInfo.jellyfinItemId"
         :jellyfin-media-source-id="playbackInfo.jellyfinMediaSourceId"
         :jellyfin-play-session-id="playbackInfo.jellyfinPlaySessionId"
+        :tmdb-id="effectiveTmdbId"
+        :media-type="mediaType"
+        :season-number="currentSeasonNumber"
+        :episode-number="currentEpisodeNumber"
         @close="handleClose"
         @ended="handleEnded"
       />

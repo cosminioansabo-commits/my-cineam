@@ -6,6 +6,7 @@ import type { MediaType, Video, CollectionDetails } from '@/types'
 import { getImageUrl, getBackdropUrl, getCollectionDetails } from '@/services/tmdbService'
 import { libraryService } from '@/services/libraryService'
 import { getExternalRatings, type ExternalRatings } from '@/services/omdbService'
+import { progressService, type WatchProgress } from '@/services/progressService'
 import TorrentSearchModal from '@/components/torrents/TorrentSearchModal.vue'
 import TrailerModal from '@/components/media/TrailerModal.vue'
 import PlaybackModal from '@/components/media/PlaybackModal.vue'
@@ -37,6 +38,9 @@ const isLoadingCollection = ref(false)
 
 // External ratings state (OMDb)
 const externalRatings = ref<ExternalRatings | null>(null)
+
+// Watch progress state (for Resume button)
+const movieProgress = ref<WatchProgress | null>(null)
 
 const mediaType = computed(() => route.params.type as MediaType)
 const mediaId = computed(() => Number(route.params.id))
@@ -79,6 +83,25 @@ const fetchExternalRatings = async () => {
     externalRatings.value = null
   }
 }
+
+const fetchMovieProgress = async () => {
+  if (!media.value || mediaType.value !== 'movie') {
+    movieProgress.value = null
+    return
+  }
+
+  try {
+    movieProgress.value = await progressService.getMovieProgress(media.value.id)
+  } catch (error) {
+    console.error('Error fetching movie progress:', error)
+    movieProgress.value = null
+  }
+}
+
+// Computed: has resume data for movie
+const hasResumeProgress = computed(() => {
+  return movieProgress.value && !movieProgress.value.completed && movieProgress.value.positionMs > 30000
+})
 
 const checkLibraryStatus = async () => {
   if (!media.value) return
@@ -195,16 +218,18 @@ watch([mediaType, mediaId], ([newType, newId]) => {
   libraryStatus.value = { inLibrary: false, enabled: false }
   collectionDetails.value = null
   externalRatings.value = null
+  movieProgress.value = null
   // Scroll to top on navigation
   window.scrollTo({ top: 0, behavior: 'smooth' })
 })
 
-// Check library status, fetch collection and external ratings when media loads
+// Check library status, fetch collection, external ratings, and progress when media loads
 watch(media, (newMedia) => {
   if (newMedia) {
     checkLibraryStatus()
     fetchCollection()
     fetchExternalRatings()
+    fetchMovieProgress()
   }
 })
 
@@ -394,10 +419,10 @@ const goBack = () => {
 
               <!-- Actions -->
               <div class="flex flex-wrap items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-                <!-- Play Button (for movies with file) -->
+                <!-- Play/Resume Button (for movies with file) -->
                 <Button
                   v-if="mediaType === 'movie' && libraryStatus.inLibrary && libraryStatus.hasFile"
-                  label="Play"
+                  :label="hasResumeProgress ? 'Resume' : 'Play'"
                   icon="pi pi-play"
                   class="play-btn !text-xs sm:!text-sm !py-2 sm:!py-2.5 !px-3 sm:!px-4 !border-0"
                   @click="showPlaybackModal = true"
@@ -405,7 +430,7 @@ const goBack = () => {
                 <Button
                   v-if="trailer"
                   label="Trailer"
-                  icon="pi pi-play"
+                  icon="pi pi-youtube"
                   class="trailer-btn !text-xs sm:!text-sm !py-2 sm:!py-2.5 !px-3 sm:!px-4 !border-0"
                   @click="showTrailerModal = true"
                 />
@@ -418,8 +443,9 @@ const goBack = () => {
                   class="!text-xs sm:!text-sm !py-2 sm:!py-2.5 !px-3 sm:!px-4"
                   @click="toggleLibrary"
                 />
+                <!-- Torrent button: hidden if movie already has file -->
                 <Button
-                  v-if="libraryStatus.enabled"
+                  v-if="libraryStatus.enabled && !(mediaType === 'movie' && libraryStatus.hasFile)"
                   label="Torrent"
                   icon="pi pi-download"
                   severity="help"
@@ -689,22 +715,22 @@ const goBack = () => {
   color: white !important;
 }
 
-/* Trailer button with red gradient */
+/* Trailer button with YouTube-style gradient */
 .trailer-btn {
-  background: linear-gradient(135deg, #e50914 0%, #b81d24 100%) !important;
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%) !important;
   color: white !important;
   font-weight: 600 !important;
   transition: all 0.2s ease !important;
-  box-shadow: 0 4px 12px rgba(229, 9, 20, 0.3) !important;
+  box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3) !important;
 }
 
 .trailer-btn:hover {
-  background: linear-gradient(135deg, #f40612 0%, #d81f26 100%) !important;
+  background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%) !important;
   transform: scale(1.02) !important;
-  box-shadow: 0 6px 16px rgba(229, 9, 20, 0.4) !important;
+  box-shadow: 0 6px 16px rgba(107, 114, 128, 0.4) !important;
 }
 
-.trailer-btn :deep(.pi-play) {
-  color: white !important;
+.trailer-btn :deep(.pi-youtube) {
+  color: #ff0000 !important;
 }
 </style>

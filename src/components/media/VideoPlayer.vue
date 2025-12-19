@@ -4,6 +4,7 @@ import Hls from 'hls.js'
 import Button from 'primevue/button'
 import Slider from 'primevue/slider'
 import { mediaService } from '@/services/mediaService'
+import { subtitleService, type SubtitleSearchResult, type SubtitleLanguage } from '@/services/subtitleService'
 
 interface SubtitleTrack {
   id: number
@@ -35,6 +36,11 @@ const props = defineProps<{
   jellyfinItemId?: string
   jellyfinMediaSourceId?: string
   jellyfinPlaySessionId?: string
+  // Media info for subtitle search
+  tmdbId?: number
+  mediaType?: 'movie' | 'tv'
+  seasonNumber?: number
+  episodeNumber?: number
 }>()
 
 const emit = defineEmits<{
@@ -59,22 +65,20 @@ const hasError = ref(false)
 const errorMessage = ref('')
 const showResumePrompt = ref(false)
 const showSettings = ref(false)
-const settingsTab = ref<'main' | 'subtitleStyle'>('main')
+const settingsTab = ref<'main' | 'subtitleStyle' | 'subtitleSearch'>('main')
 const hasReportedStarted = ref(false)
+
+// Subtitle search state
+const subtitleSearchEnabled = ref(false)
+const subtitleLanguages = ref<SubtitleLanguage[]>([])
+const selectedSearchLanguage = ref('en')
+const subtitleSearchResults = ref<SubtitleSearchResult[]>([])
+const isSearchingSubtitles = ref(false)
+const isDownloadingSubtitle = ref(false)
+const subtitleSearchError = ref('')
 
 // Subtitle state
 const selectedSubtitle = ref<number | null>(null)
-
-// Playback speed state
-const playbackSpeed = ref(1)
-const speedOptions = [
-  { label: '0.5x', value: 0.5 },
-  { label: '0.75x', value: 0.75 },
-  { label: 'Normal', value: 1 },
-  { label: '1.25x', value: 1.25 },
-  { label: '1.5x', value: 1.5 },
-  { label: '2x', value: 2 }
-]
 
 // Buffering state
 const bufferedProgress = ref(0)
@@ -380,25 +384,6 @@ const toggleMute = () => {
   }
 }
 
-// Playback speed control
-const setPlaybackSpeed = (speed: number) => {
-  if (videoRef.value) {
-    videoRef.value.playbackRate = speed
-    playbackSpeed.value = speed
-  }
-}
-
-const cyclePlaybackSpeed = (direction: 'up' | 'down') => {
-  const currentIndex = speedOptions.findIndex(opt => opt.value === playbackSpeed.value)
-  let newIndex = currentIndex
-  if (direction === 'up' && currentIndex < speedOptions.length - 1) {
-    newIndex = currentIndex + 1
-  } else if (direction === 'down' && currentIndex > 0) {
-    newIndex = currentIndex - 1
-  }
-  setPlaybackSpeed(speedOptions[newIndex].value)
-}
-
 // Double-tap seek handler (mobile)
 const handleDoubleTapSeek = (clientX: number) => {
   const container = containerRef.value
@@ -518,6 +503,120 @@ const loadSubtitle = async (subtitleId: number | null) => {
 watch(selectedSubtitle, (newValue) => {
   loadSubtitle(newValue)
 })
+
+// Initialize subtitle search
+const initSubtitleSearch = async () => {
+  try {
+    const status = await subtitleService.getStatus()
+    subtitleSearchEnabled.value = status.enabled
+    subtitleLanguages.value = status.languages
+  } catch (error) {
+    console.error('Failed to initialize subtitle search:', error)
+    subtitleSearchEnabled.value = false
+  }
+}
+
+// Search for subtitles
+const searchSubtitles = async () => {
+  if (!props.tmdbId) {
+    subtitleSearchError.value = 'Cannot search subtitles without media ID'
+    return
+  }
+
+  isSearchingSubtitles.value = true
+  subtitleSearchError.value = ''
+  subtitleSearchResults.value = []
+
+  try {
+    const results = await subtitleService.searchSubtitles({
+      tmdbId: String(props.tmdbId),
+      language: selectedSearchLanguage.value,
+      type: props.mediaType,
+      season: props.seasonNumber,
+      episode: props.episodeNumber,
+    })
+    subtitleSearchResults.value = results
+    if (results.length === 0) {
+      subtitleSearchError.value = 'No subtitles found for this language'
+    }
+  } catch (error) {
+    console.error('Subtitle search error:', error)
+    subtitleSearchError.value = 'Failed to search subtitles'
+  } finally {
+    isSearchingSubtitles.value = false
+  }
+}
+
+// Download and load subtitle directly into video player
+const downloadSubtitle = async (result: SubtitleSearchResult) => {
+  if (!result.fileId) {
+    subtitleSearchError.value = 'Invalid subtitle file'
+    return
+  }
+
+  isDownloadingSubtitle.value = true
+  subtitleSearchError.value = ''
+
+  try {
+    const content = await subtitleService.downloadSubtitle(result.fileId)
+    if (content) {
+      // Create a blob URL from the subtitle content
+      const blob = new Blob([content], { type: 'text/vtt' })
+      const blobUrl = URL.createObjectURL(blob)
+
+      // Load the subtitle into the video player
+      if (videoRef.value) {
+        // Remove existing custom tracks
+        const tracks = videoRef.value.getElementsByTagName('track')
+        for (let i = tracks.length - 1; i >= 0; i--) {
+          const track = tracks[i]
+          if (track.getAttribute('data-custom') === 'true') {
+            videoRef.value.removeChild(track)
+          }
+        }
+
+        // Add new track
+        const track = document.createElement('track')
+        track.kind = 'subtitles'
+        track.label = result.name || 'Downloaded Subtitle'
+        track.srclang = result.language || 'en'
+        track.src = blobUrl
+        track.setAttribute('data-custom', 'true')
+        track.default = true
+        videoRef.value.appendChild(track)
+
+        // Activate the track
+        track.addEventListener('load', () => {
+          const textTracks = videoRef.value?.textTracks
+          if (textTracks) {
+            for (let i = 0; i < textTracks.length; i++) {
+              textTracks[i].mode = textTracks[i].label === track.label ? 'showing' : 'hidden'
+            }
+          }
+        })
+      }
+
+      // Clear search results and show success message
+      subtitleSearchResults.value = []
+      subtitleSearchError.value = 'Subtitle loaded!'
+      settingsTab.value = 'main'
+    } else {
+      subtitleSearchError.value = 'Failed to download subtitle'
+    }
+  } catch (error) {
+    console.error('Subtitle download error:', error)
+    subtitleSearchError.value = 'Failed to download subtitle'
+  } finally {
+    isDownloadingSubtitle.value = false
+  }
+}
+
+// Open subtitle search tab
+const openSubtitleSearch = () => {
+  settingsTab.value = 'subtitleSearch'
+  subtitleSearchResults.value = []
+  subtitleSearchError.value = ''
+}
 
 const setVolume = (value: number | number[]) => {
   const volumeValue = Array.isArray(value) ? value[0] : value
@@ -715,16 +814,6 @@ const handleKeydown = (e: KeyboardEvent) => {
       e.preventDefault()
       toggleMute()
       break
-    case '>':
-    case '.':
-      e.preventDefault()
-      cyclePlaybackSpeed('up')
-      break
-    case '<':
-    case ',':
-      e.preventDefault()
-      cyclePlaybackSpeed('down')
-      break
     case 'Escape':
       if (!document.fullscreenElement) {
         emit('close')
@@ -763,6 +852,9 @@ onMounted(() => {
 
   // Initialize audio track from props
   initAudioTrack()
+
+  // Initialize subtitle search availability
+  initSubtitleSearch()
 
   initPlayer()
   document.addEventListener('fullscreenchange', handleFullscreenChange)
@@ -1004,22 +1096,6 @@ defineExpose({
               >
                 <!-- Main Settings Tab -->
                 <div v-if="settingsTab === 'main'" class="p-4">
-                  <!-- Playback Speed -->
-                  <div class="mb-4">
-                    <label class="text-gray-400 text-xs uppercase tracking-wide mb-2 block">Speed</label>
-                    <div class="flex flex-wrap gap-1">
-                      <button
-                        v-for="option in speedOptions"
-                        :key="option.value"
-                        class="px-3 py-1.5 rounded text-sm transition-colors"
-                        :class="playbackSpeed === option.value ? 'bg-red-600 text-white' : 'text-gray-300 hover:bg-zinc-700'"
-                        @click="setPlaybackSpeed(option.value)"
-                      >
-                        {{ option.label }}
-                      </button>
-                    </div>
-                  </div>
-
                   <!-- Audio Track Selection -->
                   <div v-if="audioTracks && audioTracks.length > 1" class="mb-4">
                     <label class="text-gray-400 text-xs uppercase tracking-wide mb-2 block">Audio</label>
@@ -1037,17 +1113,27 @@ defineExpose({
                   </div>
 
                   <!-- Subtitle Selection -->
-                  <div v-if="subtitles && subtitles.length > 0">
+                  <div>
                     <div class="flex items-center justify-between mb-2">
                       <label class="text-gray-400 text-xs uppercase tracking-wide">Subtitles</label>
-                      <button
-                        class="text-xs text-gray-400 hover:text-white transition-colors"
-                        @click="settingsTab = 'subtitleStyle'"
-                      >
-                        Style <i class="pi pi-chevron-right text-xs"></i>
-                      </button>
+                      <div class="flex items-center gap-2">
+                        <button
+                          v-if="subtitleSearchEnabled && tmdbId"
+                          class="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                          @click="openSubtitleSearch"
+                        >
+                          <i class="pi pi-search text-xs mr-1"></i>Find
+                        </button>
+                        <button
+                          v-if="subtitles && subtitles.length > 0"
+                          class="text-xs text-gray-400 hover:text-white transition-colors"
+                          @click="settingsTab = 'subtitleStyle'"
+                        >
+                          Style <i class="pi pi-chevron-right text-xs"></i>
+                        </button>
+                      </div>
                     </div>
-                    <div class="flex flex-col gap-1 max-h-32 overflow-y-auto">
+                    <div v-if="subtitles && subtitles.length > 0" class="flex flex-col gap-1 max-h-32 overflow-y-auto">
                       <button
                         v-for="option in subtitleOptions"
                         :key="option.value ?? 'off'"
@@ -1057,6 +1143,9 @@ defineExpose({
                       >
                         {{ option.label }}
                       </button>
+                    </div>
+                    <div v-else class="text-gray-500 text-sm py-2">
+                      No subtitles available
                     </div>
                   </div>
                 </div>
@@ -1115,6 +1204,69 @@ defineExpose({
                         @click="subtitleStyle.backgroundOpacity = option.value; saveSubtitleStyle()"
                       >
                         {{ option.label }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Subtitle Search Tab -->
+                <div v-else-if="settingsTab === 'subtitleSearch'" class="p-4 min-w-[300px]">
+                  <button
+                    class="flex items-center gap-2 text-gray-400 hover:text-white mb-4 transition-colors"
+                    @click="settingsTab = 'main'"
+                  >
+                    <i class="pi pi-chevron-left text-xs"></i>
+                    <span class="text-sm">Find Subtitles</span>
+                  </button>
+
+                  <!-- Language Selection -->
+                  <div class="mb-4">
+                    <label class="text-gray-400 text-xs uppercase tracking-wide mb-2 block">Language</label>
+                    <select
+                      v-model="selectedSearchLanguage"
+                      class="w-full bg-zinc-800 text-white text-sm rounded px-3 py-2 border border-zinc-600 focus:border-red-500 focus:outline-none"
+                    >
+                      <option v-for="lang in subtitleLanguages" :key="lang.code" :value="lang.code">
+                        {{ lang.name }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <!-- Search Button -->
+                  <button
+                    class="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded px-4 py-2 mb-4 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    :disabled="isSearchingSubtitles"
+                    @click="searchSubtitles"
+                  >
+                    <i v-if="isSearchingSubtitles" class="pi pi-spin pi-spinner"></i>
+                    <i v-else class="pi pi-search"></i>
+                    {{ isSearchingSubtitles ? 'Searching...' : 'Search' }}
+                  </button>
+
+                  <!-- Error/Success Message -->
+                  <div v-if="subtitleSearchError" class="text-sm mb-3 px-2 py-1.5 rounded" :class="subtitleSearchError.includes('downloaded') ? 'text-green-400 bg-green-900/30' : 'text-red-400 bg-red-900/30'">
+                    {{ subtitleSearchError }}
+                  </div>
+
+                  <!-- Search Results -->
+                  <div v-if="subtitleSearchResults.length > 0" class="max-h-48 overflow-y-auto">
+                    <div class="text-gray-400 text-xs uppercase tracking-wide mb-2">Results</div>
+                    <div class="flex flex-col gap-1">
+                      <button
+                        v-for="result in subtitleSearchResults"
+                        :key="result.id"
+                        class="text-left px-3 py-2 rounded text-sm transition-colors bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50"
+                        :disabled="isDownloadingSubtitle"
+                        @click="downloadSubtitle(result)"
+                      >
+                        <div class="flex items-center justify-between">
+                          <span class="text-white truncate flex-1 mr-2">{{ result.name }}</span>
+                          <span v-if="result.isHashMatch" class="text-green-500 text-xs px-1.5 py-0.5 bg-green-900/30 rounded">Match</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                          <span>{{ result.providerName }}</span>
+                          <span v-if="result.downloadCount">{{ result.downloadCount.toLocaleString() }} downloads</span>
+                        </div>
                       </button>
                     </div>
                   </div>
