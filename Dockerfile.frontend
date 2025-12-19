@@ -6,9 +6,10 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (skip optional deps like sharp which is only for local icon generation)
+# Install dependencies
 # Using npm install instead of npm ci due to peer dependency conflicts in workbox-build
-RUN npm install --omit=optional && npm cache clean --force
+# sharp is in optionalDependencies so install won't fail if it can't build on Alpine
+RUN npm install && npm cache clean --force
 
 # Copy source code
 COPY . .
