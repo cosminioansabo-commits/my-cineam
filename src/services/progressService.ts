@@ -105,6 +105,19 @@ export const progressService = {
   },
 
   /**
+   * Get all watch progress for a TV show (all episodes)
+   */
+  async getShowProgress(tmdbId: number): Promise<WatchProgress[]> {
+    try {
+      const response = await api.get(`/show/${tmdbId}`)
+      return response.data || []
+    } catch (error) {
+      console.error('Error fetching show progress:', error)
+      return []
+    }
+  },
+
+  /**
    * Mark media as fully watched
    */
   async markAsWatched(

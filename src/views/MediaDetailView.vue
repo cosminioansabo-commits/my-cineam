@@ -7,6 +7,7 @@ import { getImageUrl, getBackdropUrl, getCollectionDetails } from '@/services/tm
 import { libraryService } from '@/services/libraryService'
 import { getExternalRatings, type ExternalRatings } from '@/services/omdbService'
 import { progressService, type WatchProgress } from '@/services/progressService'
+import type { SonarrEpisode } from '@/services/libraryService'
 import TorrentSearchModal from '@/components/torrents/TorrentSearchModal.vue'
 import TrailerModal from '@/components/media/TrailerModal.vue'
 import PlaybackModal from '@/components/media/PlaybackModal.vue'
@@ -41,6 +42,11 @@ const externalRatings = ref<ExternalRatings | null>(null)
 
 // Watch progress state (for Resume button)
 const movieProgress = ref<WatchProgress | null>(null)
+
+// TV show progress state (for Resume button)
+const showProgress = ref<WatchProgress[]>([])
+const sonarrEpisodes = ref<SonarrEpisode[]>([])
+const tvPlaybackEpisode = ref<{ season: number; episode: number; title: string } | null>(null)
 
 const mediaType = computed(() => route.params.type as MediaType)
 const mediaId = computed(() => Number(route.params.id))
@@ -102,6 +108,102 @@ const fetchMovieProgress = async () => {
 const hasResumeProgress = computed(() => {
   return movieProgress.value && !movieProgress.value.completed && movieProgress.value.positionMs > 30000
 })
+
+// Fetch TV show progress and Sonarr episodes
+const fetchShowProgress = async () => {
+  if (!media.value || mediaType.value !== 'tv' || !libraryStatus.value.id) {
+    showProgress.value = []
+    sonarrEpisodes.value = []
+    return
+  }
+
+  try {
+    const [progress, episodes] = await Promise.all([
+      progressService.getShowProgress(media.value.id),
+      libraryService.getSeriesEpisodes(libraryStatus.value.id)
+    ])
+    showProgress.value = progress
+    sonarrEpisodes.value = episodes
+  } catch (error) {
+    console.error('Error fetching show progress:', error)
+    showProgress.value = []
+    sonarrEpisodes.value = []
+  }
+}
+
+// Computed: get the next episode to resume/play for TV shows
+const nextTvEpisode = computed(() => {
+  if (mediaType.value !== 'tv' || !libraryStatus.value.inLibrary) return null
+
+  // Get downloaded episodes sorted by season and episode number
+  const downloadedEpisodes = sonarrEpisodes.value
+    .filter(ep => ep.hasFile && ep.seasonNumber > 0)
+    .sort((a, b) => a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber)
+
+  if (downloadedEpisodes.length === 0) return null
+
+  // First, check for any episode with partial progress (not completed, position > 30s)
+  const partialProgress = showProgress.value
+    .filter(p => !p.completed && p.positionMs > 30000)
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+
+  if (partialProgress.length > 0) {
+    const resumeEp = partialProgress[0]
+    // Verify this episode is still downloaded
+    const isDownloaded = downloadedEpisodes.some(
+      ep => ep.seasonNumber === resumeEp.seasonNumber && ep.episodeNumber === resumeEp.episodeNumber
+    )
+    if (isDownloaded) {
+      return {
+        seasonNumber: resumeEp.seasonNumber!,
+        episodeNumber: resumeEp.episodeNumber!,
+        hasProgress: true
+      }
+    }
+  }
+
+  // Find the next unwatched episode (first downloaded episode that's not completed)
+  const completedSet = new Set(
+    showProgress.value
+      .filter(p => p.completed)
+      .map(p => `${p.seasonNumber}-${p.episodeNumber}`)
+  )
+
+  for (const ep of downloadedEpisodes) {
+    const key = `${ep.seasonNumber}-${ep.episodeNumber}`
+    if (!completedSet.has(key)) {
+      return {
+        seasonNumber: ep.seasonNumber,
+        episodeNumber: ep.episodeNumber,
+        hasProgress: false
+      }
+    }
+  }
+
+  // All downloaded episodes are watched - play the first one
+  if (downloadedEpisodes.length > 0) {
+    return {
+      seasonNumber: downloadedEpisodes[0].seasonNumber,
+      episodeNumber: downloadedEpisodes[0].episodeNumber,
+      hasProgress: false
+    }
+  }
+
+  return null
+})
+
+// Play TV show (opens the next episode to watch)
+const playTvShow = () => {
+  if (!nextTvEpisode.value || !media.value) return
+
+  const { seasonNumber, episodeNumber } = nextTvEpisode.value
+  tvPlaybackEpisode.value = {
+    season: seasonNumber,
+    episode: episodeNumber,
+    title: `${media.value.title} - S${seasonNumber}E${episodeNumber}`
+  }
+  showPlaybackModal.value = true
+}
 
 const checkLibraryStatus = async () => {
   if (!media.value) return
@@ -219,6 +321,9 @@ watch([mediaType, mediaId], ([newType, newId]) => {
   collectionDetails.value = null
   externalRatings.value = null
   movieProgress.value = null
+  showProgress.value = []
+  sonarrEpisodes.value = []
+  tvPlaybackEpisode.value = null
   // Scroll to top on navigation
   window.scrollTo({ top: 0, behavior: 'smooth' })
 })
@@ -230,6 +335,13 @@ watch(media, (newMedia) => {
     fetchCollection()
     fetchExternalRatings()
     fetchMovieProgress()
+  }
+})
+
+// Fetch show progress once library status is loaded for TV shows
+watch(libraryStatus, (newStatus) => {
+  if (newStatus.inLibrary && newStatus.id && mediaType.value === 'tv') {
+    fetchShowProgress()
   }
 })
 
@@ -426,6 +538,15 @@ const goBack = () => {
                   icon="pi pi-play"
                   class="play-btn !text-xs sm:!text-sm !py-2 sm:!py-2.5 !px-3 sm:!px-4 !border-0"
                   @click="showPlaybackModal = true"
+                />
+                <!-- Play/Resume Button (for TV shows with downloaded episodes) -->
+                <Button
+                  v-if="mediaType === 'tv' && nextTvEpisode"
+                  :label="nextTvEpisode.hasProgress ? 'Resume' : 'Play'"
+                  icon="pi pi-play"
+                  class="play-btn !text-xs sm:!text-sm !py-2 sm:!py-2.5 !px-3 sm:!px-4 !border-0"
+                  @click="playTvShow"
+                  v-tooltip.bottom="`S${nextTvEpisode.seasonNumber}E${nextTvEpisode.episodeNumber}`"
                 />
                 <Button
                   v-if="trailer"
@@ -691,6 +812,17 @@ const goBack = () => {
       :tmdb-id="media.id"
       media-type="movie"
       :title="media.title"
+    />
+
+    <!-- Playback Modal (for TV shows) -->
+    <PlaybackModal
+      v-if="media && mediaType === 'tv' && tvPlaybackEpisode"
+      v-model:visible="showPlaybackModal"
+      media-type="tv"
+      :show-tmdb-id="media.id"
+      :season-number="tvPlaybackEpisode.season"
+      :episode-number="tvPlaybackEpisode.episode"
+      :title="tvPlaybackEpisode.title"
     />
   </div>
 </template>

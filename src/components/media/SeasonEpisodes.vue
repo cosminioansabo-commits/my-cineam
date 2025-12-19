@@ -124,6 +124,12 @@ const getSeasonDownloadCount = (seasonNumber: number): { downloaded: number; tot
   return { downloaded: 0, total: 0 }
 }
 
+// Check if a season is fully downloaded
+const isSeasonFullyDownloaded = (seasonNumber: number): boolean => {
+  const counts = getSeasonDownloadCount(seasonNumber)
+  return counts.total > 0 && counts.downloaded === counts.total
+}
+
 // Load Sonarr data when sonarrSeriesId is provided
 onMounted(() => {
   loadSonarrData()
@@ -326,8 +332,9 @@ const isEpisodeAired = (airDate: string | null): boolean => {
               </div>
             </div>
 
-            <!-- Search season torrent button -->
+            <!-- Search season torrent button (only show if not fully downloaded) -->
             <Button
+              v-if="!isSeasonFullyDownloaded(season.seasonNumber)"
               icon="pi pi-download"
               severity="help"
               size="small"
@@ -409,9 +416,9 @@ const isEpisodeAired = (airDate: string | null): boolean => {
                         @click="playEpisode(episode)"
                         v-tooltip.left="'Play'"
                       />
-                      <!-- Search episode torrent button -->
+                      <!-- Search episode torrent button (only show if not downloaded) -->
                       <Button
-                        v-if="isEpisodeAired(episode.airDate)"
+                        v-if="isEpisodeAired(episode.airDate) && !isEpisodeDownloaded(episode.seasonNumber, episode.episodeNumber)"
                         icon="pi pi-download"
                         severity="help"
                         size="small"
