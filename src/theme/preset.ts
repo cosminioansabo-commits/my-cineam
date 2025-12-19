@@ -250,6 +250,15 @@ export const CinemaPreset = definePreset(Aura, {
       },
     },
     drawer: {
+      header: {
+        padding: '0'
+      },
+      content: {
+        padding: '0',
+      },
+      footer: {
+        padding: '0',
+      },
       colorScheme: {
         dark: {
           root: {

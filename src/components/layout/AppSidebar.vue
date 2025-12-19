@@ -36,16 +36,10 @@ const closeSidebar = () => {
     :visible="props.visible"
     @update:visible="emit('update:visible', $event)"
     :showCloseIcon="false"
-    :pt="{
-      root: { class: 'bg-[#141414] border-r border-zinc-800' },
-      header: { class: 'bg-[#141414] border-b border-zinc-800 p-4' },
-      content: { class: 'bg-[#141414] p-0' },
-      mask: { class: 'bg-black/60 backdrop-blur-sm' },
-    }"
     class="w-80"
   >
     <template #header>
-      <div class="flex items-center justify-between w-full">
+      <div class="flex items-center justify-between w-full border-b px-4 py-2 border-zinc-700">
         <RouterLink to="/" class="flex items-center gap-1 font-bold text-xl" @click="closeSidebar">
           <span class="text-[#e50914]">MY</span>
           <span class="text-white">CINEMA</span>
@@ -59,14 +53,14 @@ const closeSidebar = () => {
       </div>
     </template>
 
-    <div class="flex flex-col h-full text-white">
+
       <!-- Main Navigation -->
-      <nav class="space-y-1 px-4 py-5">
+      <nav class="flex flex-col p-4 gap-2">
         <RouterLink
           v-for="link in navLinks"
           :key="link.path"
           :to="link.path"
-          class="flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200"
+          class="flex items-center gap-4 p-3 rounded-xl transition-all duration-200"
           :class="[
             isActiveRoute(link.path)
               ? 'bg-[#e50914] text-white shadow-lg shadow-[#e50914]/20'
@@ -78,6 +72,6 @@ const closeSidebar = () => {
           <span class="font-medium">{{ link.label }}</span>
         </RouterLink>
       </nav>
-    </div>
+
   </Drawer>
 </template>

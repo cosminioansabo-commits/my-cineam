@@ -231,7 +231,7 @@ onMounted(async () => {
 
       <!-- Content -->
       <div class="relative h-full flex items-center">
-        <div class="w-full max-w-3xl px-3 sm:px-4 md:px-10 mt-14 sm:mt-20">
+        <div class="w-full max-w-3xl px-3 sm:px-4 md:px-10 mt-36 sm:mt-60">
           <template v-if="isLoadingHero">
             <Skeleton width="60%" height="2rem" class="mb-3 sm:mb-4" />
             <Skeleton width="40%" height="1.25rem" class="mb-3 sm:mb-4" />

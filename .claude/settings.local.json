@@ -33,7 +33,9 @@
       "Bash(nvm use:*)",
       "Bash(nvm ls:*)",
       "Bash(cat:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(node /Users/sabocosmin/workspace/my-cinema/scripts/generate-pwa-icons.mjs:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []
