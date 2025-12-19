@@ -96,13 +96,19 @@ router.get('/hls/:itemId/:hlsPath(*).m3u8', async (req: Request, res: Response) 
     let manifest = response.data as string
     const backendUrl = config.externalUrl.replace(/\/$/, '')
 
-    // Rewrite segment URLs - they're typically relative like "0.ts", "1.ts"
+    // Rewrite segment URLs - they're typically relative like "0.ts", "1.ts" or "0.mp4"
     // Get the directory path for relative URL resolution
     const dirPath = hlsPath.includes('/') ? hlsPath.substring(0, hlsPath.lastIndexOf('/') + 1) : ''
 
     // Rewrite .ts segment references
     manifest = manifest.replace(
       /^(\d+\.ts.*)$/gm,
+      `${backendUrl}/api/proxy/hls/${itemId}/${dirPath}$1`
+    )
+
+    // Rewrite .mp4 segment references (fMP4 format used for better quality)
+    manifest = manifest.replace(
+      /^(\d+\.mp4.*)$/gm,
       `${backendUrl}/api/proxy/hls/${itemId}/${dirPath}$1`
     )
 
@@ -146,6 +152,40 @@ router.get('/hls/:itemId/:segmentPath(*).ts', async (req: Request, res: Response
   } catch (error: any) {
     console.error('HLS proxy segment error:', error.message)
     res.status(500).json({ error: 'Failed to proxy HLS segment' })
+  }
+})
+
+// Proxy HLS segments (.mp4 fMP4 files - used by Jellyfin for better quality)
+router.get('/hls/:itemId/:segmentPath(*).mp4', async (req: Request, res: Response) => {
+  const { itemId, segmentPath } = req.params
+  const queryParams = req.query
+
+  if (!jellyfinService.isEnabled()) {
+    res.status(503).json({ error: 'Jellyfin not enabled' })
+    return
+  }
+
+  try {
+    const params = new URLSearchParams()
+    for (const [key, value] of Object.entries(queryParams)) {
+      if (value) params.set(key, String(value))
+    }
+
+    const jellyfinUrl = `${config.jellyfin.url}/Videos/${itemId}/${segmentPath}.mp4?${params.toString()}`
+
+    const response = await axios.get(jellyfinUrl, {
+      headers: {
+        'X-Emby-Token': config.jellyfin.apiKey
+      },
+      responseType: 'stream'
+    })
+
+    res.setHeader('Content-Type', 'video/mp4')
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    response.data.pipe(res)
+  } catch (error: any) {
+    console.error('HLS proxy mp4 segment error:', error.message)
+    res.status(500).json({ error: 'Failed to proxy HLS mp4 segment' })
   }
 })
 
