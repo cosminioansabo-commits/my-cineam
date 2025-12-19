@@ -291,7 +291,8 @@ class JellyfinService {
       const is4K = (videoStream?.Width || 0) >= 3840
 
       // Build HLS transcoding URL - use proxy endpoint to bypass Private Network Access
-      // For 4K HEVC content, try to preserve quality by using higher bitrate
+      // Browsers don't support HEVC/EAC3, so we must transcode to H.264/AAC
+      // Use high bitrate to preserve quality during transcode
       const hlsParams = new URLSearchParams({
         api_key: config.jellyfin.apiKey,
         MediaSourceId: mediaSource.Id,
@@ -299,17 +300,18 @@ class JellyfinService {
         AudioStreamIndex: String(options.audioStreamIndex ?? 0),
         SubtitleStreamIndex: String(options.subtitleStreamIndex ?? -1),
         SubtitleMethod: 'Encode', // Burn-in subtitles for ASS/PGS
-        // Higher bitrate for 4K content (120 Mbps for 4K, 40 Mbps for 1080p)
-        MaxStreamingBitrate: String(options.maxStreamingBitrate || (is4K ? 120000000 : 40000000)),
-        TranscodingMaxAudioChannels: '6', // Allow 5.1 surround
+        // Very high bitrate for quality: 80 Mbps for 4K, 30 Mbps for 1080p
+        MaxStreamingBitrate: String(options.maxStreamingBitrate || (is4K ? 80000000 : 30000000)),
+        TranscodingMaxAudioChannels: '6', // Allow 5.1 surround (AAC 5.1)
         SegmentContainer: 'ts',
         MinSegments: '1',
         BreakOnNonKeyFrames: 'false', // Better quality, only break on keyframes
-        // Allow both H.264 and HEVC - browser will pick what it supports
-        VideoCodec: 'h264,hevc,h265',
-        AudioCodec: 'aac,ac3,eac3',
-        // Only transcode if codec is not supported
-        TranscodeReasons: 'AudioCodecNotSupported'
+        // H.264 is universally supported by browsers
+        VideoCodec: 'h264',
+        // AAC is universally supported by browsers
+        AudioCodec: 'aac',
+        // Force transcode for proper browser compatibility
+        TranscodeReasons: 'ContainerNotSupported,VideoCodecNotSupported,AudioCodecNotSupported'
       })
 
       if (options.startTimeTicks) {
@@ -400,14 +402,14 @@ class JellyfinService {
       AudioStreamIndex: String(audioStreamIndex),
       SubtitleStreamIndex: '-1',
       SubtitleMethod: 'Encode',
-      MaxStreamingBitrate: '120000000', // High bitrate for quality
-      TranscodingMaxAudioChannels: '6', // Allow 5.1 surround
+      MaxStreamingBitrate: '80000000', // High bitrate for quality
+      TranscodingMaxAudioChannels: '6', // Allow 5.1 surround (AAC 5.1)
       SegmentContainer: 'ts',
       MinSegments: '1',
       BreakOnNonKeyFrames: 'false',
-      VideoCodec: 'h264,hevc,h265',
-      AudioCodec: 'aac,ac3,eac3',
-      TranscodeReasons: 'AudioCodecNotSupported'
+      VideoCodec: 'h264',
+      AudioCodec: 'aac',
+      TranscodeReasons: 'ContainerNotSupported,VideoCodecNotSupported,AudioCodecNotSupported'
     })
     // Use proxy URL to bypass browser Private Network Access restrictions
     const backendUrl = config.externalUrl.replace(/\/$/, '')
