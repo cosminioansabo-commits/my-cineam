@@ -174,26 +174,22 @@ const fetchPlaybackInfo = async () => {
 }
 
 // Save progress to backend database
+// Called every 10 seconds by VideoPlayer interval, and on pause/stop
 const handleProgress = async (timeMs: number, state: 'playing' | 'paused' | 'stopped') => {
   if (!effectiveTmdbId.value || !playbackInfo.value?.duration) return
 
   const durationMs = playbackInfo.value.duration
+  const progressType = props.mediaType === 'movie' ? 'movie' : 'episode'
 
-  // Only save progress periodically (not on every update)
-  // and when stopped/paused for reliability
-  if (state === 'stopped' || state === 'paused' || timeMs % 10000 < 1000) {
-    const progressType = props.mediaType === 'movie' ? 'movie' : 'episode'
-
-    await progressService.saveProgress(
-      progressType,
-      effectiveTmdbId.value,
-      timeMs,
-      durationMs,
-      currentSeasonNumber.value,
-      currentEpisodeNumber.value
-    )
-    console.log(`Progress saved: ${timeMs}ms / ${durationMs}ms (${state})`)
-  }
+  await progressService.saveProgress(
+    progressType,
+    effectiveTmdbId.value,
+    timeMs,
+    durationMs,
+    currentSeasonNumber.value,
+    currentEpisodeNumber.value
+  )
+  console.log(`Progress saved: ${timeMs}ms / ${durationMs}ms (${state})`)
 }
 
 // Handle close - confirm if playing
