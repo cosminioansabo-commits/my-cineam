@@ -3,10 +3,12 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import DownloadManager from '@/components/torrents/DownloadManager.vue'
 import { useAuthStore } from '@/stores/authStore'
+import { usePWAInstall } from '@/composables/usePWAInstall'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const { canInstall, installPWA } = usePWAInstall()
 
 const handleLogout = () => {
   authStore.logout()
@@ -106,6 +108,16 @@ onUnmounted(() => {
 
         <!-- Download Manager -->
         <DownloadManager />
+
+        <!-- PWA Install button -->
+        <button
+          v-if="canInstall"
+          @click="installPWA"
+          class="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white"
+          title="Install App"
+        >
+          <i class="pi pi-download text-lg"></i>
+        </button>
 
         <!-- Logout button (only show when auth is enabled and authenticated) -->
         <button
