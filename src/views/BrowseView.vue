@@ -46,7 +46,7 @@ const hasMore = () => {
 </script>
 
 <template>
-  <div class="flex flex-col lg:flex-row gap-4 sm:gap-6">
+  <div class="flex flex-col lg:flex-row gap-4 sm:gap-6 p-4">
     <!-- Desktop Filters Sidebar -->
     <aside class="hidden lg:block w-80 flex-shrink-0">
       <div class="sticky top-28 bg-zinc-900/80 backdrop-blur-md rounded-2xl p-6 border border-zinc-800/50 shadow-xl shadow-black/20">

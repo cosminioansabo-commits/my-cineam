@@ -29,7 +29,7 @@ onMounted(() => {
     </template>
 
     <main :class="showLayout ? 'pt-16 sm:pt-20 min-h-screen' : 'min-h-screen'">
-      <div :class="showLayout ? 'max-w-[1920px] mx-auto px-3 sm:px-6 lg:px-10 xl:px-14 py-4 sm:py-6' : ''">
+      <div :class="showLayout ? 'max-w-[1920px]' : ''">
         <RouterView />
       </div>
     </main>

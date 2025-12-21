@@ -207,7 +207,6 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="-mx-3 sm:-mx-6 lg:-mx-10 -mt-4 sm:-mt-6">
     <!-- Hero Section -->
     <section class="relative h-[55vh] sm:h-[65vh] md:h-[70vh] min-h-[380px] sm:min-h-[450px] md:min-h-[500px] max-h-[800px] overflow-hidden">
       <!-- Background -->
@@ -231,10 +230,10 @@ onMounted(async () => {
 
       <!-- Content -->
       <div class="relative h-full flex items-center">
-        <div class="w-full max-w-3xl px-3 sm:px-4 md:px-10 mt-32 sm:mt-50">
+        <div class="w-full h-full max-w-3xl justify-end flex flex-col px-4 pb-4 sm:pb-10">
           <template v-if="isLoadingHero">
-            <Skeleton width="60%" height="2rem" class="mb-3 sm:mb-4" />
-            <Skeleton width="40%" height="1.25rem" class="mb-3 sm:mb-4" />
+            <Skeleton width="60%" height="2rem" class="mb-2 sm:mb-4" />
+            <Skeleton width="40%" height="1.25rem" class="mb-4 sm:mb-4" />
             <Skeleton width="100%" height="3rem" class="mb-4 sm:mb-6" />
             <div class="flex gap-2 sm:gap-3">
               <Skeleton width="100px" height="36px" class="sm:!w-[120px] sm:!h-12" />
@@ -279,7 +278,7 @@ onMounted(async () => {
     </section>
 
     <!-- Carousels -->
-    <div class="relative flex flex-col gap-10 z-10 -mt-16 sm:-mt-24 pb-8 sm:pb-12 px-2 sm:px-0">
+    <div class="relative flex flex-col gap-4 sm:gap-10 z-10 pb-8 sm:pb-12 px-4">
       <!-- Continue Watching (if has items) -->
       <ContinueWatchingCarousel
         v-if="continueWatchingItems.length > 0 || isLoadingContinueWatching"
@@ -342,5 +341,4 @@ onMounted(async () => {
         :loading="isLoadingContent"
       />
     </div>
-  </div>
 </template>

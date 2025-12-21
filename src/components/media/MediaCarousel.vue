@@ -69,7 +69,7 @@ onUnmounted(() => {
 <template>
   <section class="carousel-section">
     <!-- Header -->
-    <div class="flex items-center justify-between px-3 sm:px-4 md:px-10">
+    <div class="flex items-center justify-between">
       <component
         :is="seeAllLink ? RouterLink : 'h2'"
         :to="seeAllLink"
