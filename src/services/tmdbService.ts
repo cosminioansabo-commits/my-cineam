@@ -146,6 +146,296 @@ export async function getAiringTodayTV(page = 1): Promise<Media[]> {
     .filter((item): item is Media => item !== null)
 }
 
+// Get TV shows on the air (currently airing series)
+export async function getOnTheAirTV(page = 1): Promise<Media[]> {
+  const { data } = await api.get<TMDBResponse<TMDBSearchResult>>('/tv/on_the_air', {
+    params: { page },
+  })
+  return data.results
+    .map(item => transformToMedia({ ...item, media_type: 'tv' }))
+    .filter((item): item is Media => item !== null)
+}
+
+// ============ NETFLIX-STYLE CATEGORIES ============
+
+// Critically Acclaimed (high rating, many votes)
+export async function getCriticallyAcclaimed(mediaType: MediaType, page = 1): Promise<Media[]> {
+  const { data } = await api.get<TMDBResponse<TMDBSearchResult>>(`/discover/${mediaType}`, {
+    params: {
+      page,
+      sort_by: 'vote_average.desc',
+      'vote_count.gte': 1000,
+      'vote_average.gte': 8,
+    },
+  })
+  return data.results
+    .map(item => transformToMedia({ ...item, media_type: mediaType }))
+    .filter((item): item is Media => item !== null)
+}
+
+// Hidden Gems (high rating, lower popularity)
+export async function getHiddenGems(mediaType: MediaType, page = 1): Promise<Media[]> {
+  const { data } = await api.get<TMDBResponse<TMDBSearchResult>>(`/discover/${mediaType}`, {
+    params: {
+      page,
+      sort_by: 'vote_average.desc',
+      'vote_count.gte': 100,
+      'vote_count.lte': 1000,
+      'vote_average.gte': 7.5,
+    },
+  })
+  return data.results
+    .map(item => transformToMedia({ ...item, media_type: mediaType }))
+    .filter((item): item is Media => item !== null)
+}
+
+// New Releases (last 3 months)
+export async function getNewReleases(mediaType: MediaType, page = 1): Promise<Media[]> {
+  const today = new Date()
+  const threeMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 3, today.getDate())
+  const dateField = mediaType === 'movie' ? 'primary_release_date' : 'first_air_date'
+
+  const { data } = await api.get<TMDBResponse<TMDBSearchResult>>(`/discover/${mediaType}`, {
+    params: {
+      page,
+      sort_by: 'popularity.desc',
+      [`${dateField}.gte`]: threeMonthsAgo.toISOString().split('T')[0],
+      [`${dateField}.lte`]: today.toISOString().split('T')[0],
+      'vote_count.gte': 50,
+    },
+  })
+  return data.results
+    .map(item => transformToMedia({ ...item, media_type: mediaType }))
+    .filter((item): item is Media => item !== null)
+}
+
+// Anime (Japanese animation)
+export async function getAnime(mediaType: MediaType, page = 1): Promise<Media[]> {
+  const { data } = await api.get<TMDBResponse<TMDBSearchResult>>(`/discover/${mediaType}`, {
+    params: {
+      page,
+      with_genres: 16, // Animation genre
+      with_origin_country: 'JP',
+      sort_by: 'popularity.desc',
+      'vote_count.gte': 50,
+    },
+  })
+  return data.results
+    .map(item => transformToMedia({ ...item, media_type: mediaType }))
+    .filter((item): item is Media => item !== null)
+}
+
+// Documentaries
+export async function getDocumentaries(mediaType: MediaType, page = 1): Promise<Media[]> {
+  const genreId = mediaType === 'movie' ? 99 : 99 // Documentary genre
+  const { data } = await api.get<TMDBResponse<TMDBSearchResult>>(`/discover/${mediaType}`, {
+    params: {
+      page,
+      with_genres: genreId,
+      sort_by: 'popularity.desc',
+      'vote_count.gte': 50,
+    },
+  })
+  return data.results
+    .map(item => transformToMedia({ ...item, media_type: mediaType }))
+    .filter((item): item is Media => item !== null)
+}
+
+// Action & Adventure
+export async function getActionAdventure(mediaType: MediaType, page = 1): Promise<Media[]> {
+  // Movie: Action (28), Adventure (12) | TV: Action & Adventure (10759)
+  const genres = mediaType === 'movie' ? '28,12' : '10759'
+  const { data } = await api.get<TMDBResponse<TMDBSearchResult>>(`/discover/${mediaType}`, {
+    params: {
+      page,
+      with_genres: genres,
+      sort_by: 'popularity.desc',
+      'vote_count.gte': 100,
+    },
+  })
+  return data.results
+    .map(item => transformToMedia({ ...item, media_type: mediaType }))
+    .filter((item): item is Media => item !== null)
+}
+
+// Crime & Thriller
+export async function getCrimeThriller(mediaType: MediaType, page = 1): Promise<Media[]> {
+  // Movie: Crime (80), Thriller (53) | TV: Crime (80), Mystery (9648)
+  const genres = mediaType === 'movie' ? '80,53' : '80,9648'
+  const { data } = await api.get<TMDBResponse<TMDBSearchResult>>(`/discover/${mediaType}`, {
+    params: {
+      page,
+      with_genres: genres,
+      sort_by: 'popularity.desc',
+      'vote_count.gte': 100,
+    },
+  })
+  return data.results
+    .map(item => transformToMedia({ ...item, media_type: mediaType }))
+    .filter((item): item is Media => item !== null)
+}
+
+// Sci-Fi & Fantasy
+export async function getSciFiFantasy(mediaType: MediaType, page = 1): Promise<Media[]> {
+  // Movie: Sci-Fi (878), Fantasy (14) | TV: Sci-Fi & Fantasy (10765)
+  const genres = mediaType === 'movie' ? '878,14' : '10765'
+  const { data } = await api.get<TMDBResponse<TMDBSearchResult>>(`/discover/${mediaType}`, {
+    params: {
+      page,
+      with_genres: genres,
+      sort_by: 'popularity.desc',
+      'vote_count.gte': 100,
+    },
+  })
+  return data.results
+    .map(item => transformToMedia({ ...item, media_type: mediaType }))
+    .filter((item): item is Media => item !== null)
+}
+
+// Family Friendly
+export async function getFamilyFriendly(mediaType: MediaType, page = 1): Promise<Media[]> {
+  // Family (10751) for movies, Kids (10762) + Family (10751) for TV
+  const genres = mediaType === 'movie' ? '10751' : '10751,10762'
+  const { data } = await api.get<TMDBResponse<TMDBSearchResult>>(`/discover/${mediaType}`, {
+    params: {
+      page,
+      with_genres: genres,
+      sort_by: 'popularity.desc',
+      'vote_count.gte': 50,
+      include_adult: false,
+    },
+  })
+  return data.results
+    .map(item => transformToMedia({ ...item, media_type: mediaType }))
+    .filter((item): item is Media => item !== null)
+}
+
+// Comedy
+export async function getComedy(mediaType: MediaType, page = 1): Promise<Media[]> {
+  const { data } = await api.get<TMDBResponse<TMDBSearchResult>>(`/discover/${mediaType}`, {
+    params: {
+      page,
+      with_genres: 35, // Comedy genre
+      sort_by: 'popularity.desc',
+      'vote_count.gte': 100,
+    },
+  })
+  return data.results
+    .map(item => transformToMedia({ ...item, media_type: mediaType }))
+    .filter((item): item is Media => item !== null)
+}
+
+// Horror
+export async function getHorror(mediaType: MediaType, page = 1): Promise<Media[]> {
+  const { data } = await api.get<TMDBResponse<TMDBSearchResult>>(`/discover/${mediaType}`, {
+    params: {
+      page,
+      with_genres: 27, // Horror genre (same for movies and TV)
+      sort_by: 'popularity.desc',
+      'vote_count.gte': 50,
+    },
+  })
+  return data.results
+    .map(item => transformToMedia({ ...item, media_type: mediaType }))
+    .filter((item): item is Media => item !== null)
+}
+
+// Romance
+export async function getRomance(mediaType: MediaType, page = 1): Promise<Media[]> {
+  const { data } = await api.get<TMDBResponse<TMDBSearchResult>>(`/discover/${mediaType}`, {
+    params: {
+      page,
+      with_genres: 10749, // Romance genre
+      sort_by: 'popularity.desc',
+      'vote_count.gte': 50,
+    },
+  })
+  return data.results
+    .map(item => transformToMedia({ ...item, media_type: mediaType }))
+    .filter((item): item is Media => item !== null)
+}
+
+// Classics (released before 2000, highly rated)
+export async function getClassics(mediaType: MediaType, page = 1): Promise<Media[]> {
+  const dateField = mediaType === 'movie' ? 'primary_release_date' : 'first_air_date'
+  const { data } = await api.get<TMDBResponse<TMDBSearchResult>>(`/discover/${mediaType}`, {
+    params: {
+      page,
+      sort_by: 'vote_average.desc',
+      [`${dateField}.lte`]: '1999-12-31',
+      'vote_count.gte': 500,
+      'vote_average.gte': 7.5,
+    },
+  })
+  return data.results
+    .map(item => transformToMedia({ ...item, media_type: mediaType }))
+    .filter((item): item is Media => item !== null)
+}
+
+// Korean Dramas (K-Drama)
+export async function getKoreanDramas(page = 1): Promise<Media[]> {
+  const { data } = await api.get<TMDBResponse<TMDBSearchResult>>('/discover/tv', {
+    params: {
+      page,
+      with_origin_country: 'KR',
+      with_genres: 18, // Drama genre
+      sort_by: 'popularity.desc',
+      'vote_count.gte': 50,
+    },
+  })
+  return data.results
+    .map(item => transformToMedia({ ...item, media_type: 'tv' }))
+    .filter((item): item is Media => item !== null)
+}
+
+// Reality TV
+export async function getRealityTV(page = 1): Promise<Media[]> {
+  const { data } = await api.get<TMDBResponse<TMDBSearchResult>>('/discover/tv', {
+    params: {
+      page,
+      with_genres: 10764, // Reality genre
+      sort_by: 'popularity.desc',
+      'vote_count.gte': 20,
+    },
+  })
+  return data.results
+    .map(item => transformToMedia({ ...item, media_type: 'tv' }))
+    .filter((item): item is Media => item !== null)
+}
+
+// Award Season Picks (Oscar-bait: Drama + high rating from Oct-Dec releases)
+export async function getAwardSeasonPicks(page = 1): Promise<Media[]> {
+  const currentYear = new Date().getFullYear()
+  const { data } = await api.get<TMDBResponse<TMDBSearchResult>>('/discover/movie', {
+    params: {
+      page,
+      with_genres: 18, // Drama
+      sort_by: 'vote_average.desc',
+      'primary_release_date.gte': `${currentYear - 2}-01-01`,
+      'vote_count.gte': 200,
+      'vote_average.gte': 7.5,
+    },
+  })
+  return data.results
+    .map(item => transformToMedia({ ...item, media_type: 'movie' }))
+    .filter((item): item is Media => item !== null)
+}
+
+// Based on True Stories (Biography, History, Documentary mix for movies)
+export async function getBasedOnTrueStory(page = 1): Promise<Media[]> {
+  const { data } = await api.get<TMDBResponse<TMDBSearchResult>>('/discover/movie', {
+    params: {
+      page,
+      with_genres: '36,99', // History, Documentary
+      sort_by: 'popularity.desc',
+      'vote_count.gte': 100,
+    },
+  })
+  return data.results
+    .map(item => transformToMedia({ ...item, media_type: 'movie' }))
+    .filter((item): item is Media => item !== null)
+}
+
 // Get movies by genre
 export async function getMoviesByGenre(genreId: number, page = 1): Promise<Media[]> {
   const { data } = await api.get<TMDBResponse<TMDBSearchResult>>('/discover/movie', {

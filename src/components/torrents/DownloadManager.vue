@@ -35,19 +35,13 @@ function goToDownloads() {
 
 <template>
   <div class="download-manager relative">
-    <Button
-      icon="pi pi-download"
-      text
-      rounded
-      severity="secondary"
+    <button
       @click="toggle"
-      aria-label="Downloads"
-      class="!w-8 !h-8 sm:!w-10 sm:!h-10 !overflow-visible"
+      class="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white"
+      title="Downloads"
     >
-      <template #icon>
-        <i class="pi pi-download text-base sm:text-lg text-gray-300 hover:text-white"></i>
-      </template>
-    </Button>
+      <i class="pi pi-download text-lg"></i>
+    </button>
     <Badge
       v-if="activeCount > 0"
       :value="activeCount"

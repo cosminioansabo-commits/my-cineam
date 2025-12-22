@@ -11,12 +11,25 @@ import {
   getTopRatedMovies,
   getTopRatedTV,
   getNowPlayingMovies,
+  getUpcomingMovies,
+  getOnTheAirTV,
+  getCriticallyAcclaimed,
+  getHiddenGems,
+  getNewReleases,
+  getAnime,
+  getActionAdventure,
+  getSciFiFantasy,
+  getCrimeThriller,
+  getComedy,
+  getHorror,
+  getDocumentaries,
+  getKoreanDramas,
   getBackdropUrl,
   findByExternalId,
   getMediaDetails,
 } from '@/services/tmdbService'
 import { libraryService, type RadarrMovie, type SonarrSeries } from '@/services/libraryService'
-import { progressService, type ContinueWatchingItem } from '@/services/progressService'
+import { progressService } from '@/services/progressService'
 import MediaCarousel from '@/components/media/MediaCarousel.vue'
 import ContinueWatchingCarousel, { type ContinueWatchingItem as CarouselItem } from '@/components/media/ContinueWatchingCarousel.vue'
 import Button from 'primevue/button'
@@ -33,8 +46,24 @@ const nowPlaying = ref<Media[]>([])
 const libraryItems = ref<Media[]>([])
 const continueWatchingItems = ref<CarouselItem[]>([])
 
+// New Netflix-style categories
+const upcomingMovies = ref<Media[]>([])
+const onTheAirTV = ref<Media[]>([])
+const criticallyAcclaimedMovies = ref<Media[]>([])
+const hiddenGemsMovies = ref<Media[]>([])
+const newReleasesMovies = ref<Media[]>([])
+const animeTV = ref<Media[]>([])
+const actionMovies = ref<Media[]>([])
+const sciFiMovies = ref<Media[]>([])
+const crimeTV = ref<Media[]>([])
+const comedyMovies = ref<Media[]>([])
+const horrorMovies = ref<Media[]>([])
+const documentaries = ref<Media[]>([])
+const kDramas = ref<Media[]>([])
+
 const isLoadingHero = ref(true)
 const isLoadingContent = ref(true)
+const isLoadingMoreContent = ref(true)
 const isLoadingContinueWatching = ref(false)
 
 const authStore = useAuthStore()
@@ -107,8 +136,8 @@ const loadContinueWatching = async () => {
 const loadLibraryItems = async () => {
   try {
     const [movies, series] = await Promise.all([
-      libraryService.getRadarrMovies(),
-      libraryService.getSonarrSeries(),
+      libraryService.getMovies(),
+      libraryService.getSeries(),
     ])
 
     // Convert Radarr movies to Media format
@@ -174,7 +203,7 @@ onMounted(async () => {
     loadLibraryItems()
   }
 
-  // Load all carousels in parallel
+  // Load primary carousels in parallel (most important ones first)
   try {
     const [
       trending,
@@ -203,12 +232,63 @@ onMounted(async () => {
   } finally {
     isLoadingContent.value = false
   }
+
+  // Load additional Netflix-style categories (secondary load)
+  try {
+    const [
+      upcoming,
+      onAir,
+      acclaimed,
+      hidden,
+      newReleases,
+      anime,
+      action,
+      sciFi,
+      crime,
+      comedy,
+      horror,
+      docs,
+      korean,
+    ] = await Promise.all([
+      getUpcomingMovies(),
+      getOnTheAirTV(),
+      getCriticallyAcclaimed('movie'),
+      getHiddenGems('movie'),
+      getNewReleases('movie'),
+      getAnime('tv'),
+      getActionAdventure('movie'),
+      getSciFiFantasy('movie'),
+      getCrimeThriller('tv'),
+      getComedy('movie'),
+      getHorror('movie'),
+      getDocumentaries('movie'),
+      getKoreanDramas(),
+    ])
+
+    upcomingMovies.value = upcoming
+    onTheAirTV.value = onAir
+    criticallyAcclaimedMovies.value = acclaimed
+    hiddenGemsMovies.value = hidden
+    newReleasesMovies.value = newReleases
+    animeTV.value = anime
+    actionMovies.value = action
+    sciFiMovies.value = sciFi
+    crimeTV.value = crime
+    comedyMovies.value = comedy
+    horrorMovies.value = horror
+    documentaries.value = docs
+    kDramas.value = korean
+  } catch (error) {
+    console.error('Failed to load additional content:', error)
+  } finally {
+    isLoadingMoreContent.value = false
+  }
 })
 </script>
 
 <template>
     <!-- Hero Section -->
-    <section class="relative h-[55vh] sm:h-[65vh] md:h-[70vh] min-h-[380px] sm:min-h-[450px] md:min-h-[500px] max-h-[800px] overflow-hidden">
+    <section class="relative h-[55vh] sm:h-[65vh] md:h-[70vh] min-h-[380px] sm:min-h-[450px] md:min-h-[500px] max-h-[800px] -mx-4 overflow-hidden">
       <!-- Background -->
       <div class="absolute inset-0">
         <template v-if="isLoadingHero">
@@ -278,7 +358,7 @@ onMounted(async () => {
     </section>
 
     <!-- Carousels -->
-    <div class="relative flex flex-col gap-4 sm:gap-10 z-10 pb-8 sm:pb-12 px-4">
+    <div class="relative flex flex-col gap-4 sm:gap-10 z-10 pb-8 sm:pb-12">
       <!-- Continue Watching (if has items) -->
       <ContinueWatchingCarousel
         v-if="continueWatchingItems.length > 0 || isLoadingContinueWatching"
@@ -304,6 +384,14 @@ onMounted(async () => {
         see-all-link="/browse"
       />
 
+      <!-- New Releases -->
+      <MediaCarousel
+        v-if="newReleasesMovies.length > 0 || isLoadingMoreContent"
+        title="New Releases"
+        :items="newReleasesMovies"
+        :loading="isLoadingMoreContent"
+      />
+
       <!-- Popular Movies -->
       <MediaCarousel
         title="Popular Movies"
@@ -320,11 +408,91 @@ onMounted(async () => {
         see-all-link="/browse?type=tv"
       />
 
+      <!-- Critically Acclaimed -->
+      <MediaCarousel
+        v-if="criticallyAcclaimedMovies.length > 0 || isLoadingMoreContent"
+        title="Critically Acclaimed"
+        :items="criticallyAcclaimedMovies"
+        :loading="isLoadingMoreContent"
+      />
+
       <!-- Now Playing in Theaters -->
       <MediaCarousel
         title="Now Playing in Theaters"
         :items="nowPlaying"
         :loading="isLoadingContent"
+      />
+
+      <!-- Coming Soon -->
+      <MediaCarousel
+        v-if="upcomingMovies.length > 0 || isLoadingMoreContent"
+        title="Coming Soon"
+        :items="upcomingMovies"
+        :loading="isLoadingMoreContent"
+      />
+
+      <!-- Currently Airing TV -->
+      <MediaCarousel
+        v-if="onTheAirTV.length > 0 || isLoadingMoreContent"
+        title="Currently Airing TV Shows"
+        :items="onTheAirTV"
+        :loading="isLoadingMoreContent"
+      />
+
+      <!-- Action & Adventure -->
+      <MediaCarousel
+        v-if="actionMovies.length > 0 || isLoadingMoreContent"
+        title="Action & Adventure"
+        :items="actionMovies"
+        :loading="isLoadingMoreContent"
+      />
+
+      <!-- Sci-Fi & Fantasy -->
+      <MediaCarousel
+        v-if="sciFiMovies.length > 0 || isLoadingMoreContent"
+        title="Sci-Fi & Fantasy"
+        :items="sciFiMovies"
+        :loading="isLoadingMoreContent"
+      />
+
+      <!-- Crime & Thriller TV -->
+      <MediaCarousel
+        v-if="crimeTV.length > 0 || isLoadingMoreContent"
+        title="Crime & Thriller Series"
+        :items="crimeTV"
+        :loading="isLoadingMoreContent"
+      />
+
+      <!-- Comedy -->
+      <MediaCarousel
+        v-if="comedyMovies.length > 0 || isLoadingMoreContent"
+        title="Comedy"
+        :items="comedyMovies"
+        :loading="isLoadingMoreContent"
+      />
+
+      <!-- Horror -->
+      <MediaCarousel
+        v-if="horrorMovies.length > 0 || isLoadingMoreContent"
+        title="Horror"
+        :items="horrorMovies"
+        :loading="isLoadingMoreContent"
+      />
+
+      <!-- Anime -->
+      <MediaCarousel
+        v-if="animeTV.length > 0 || isLoadingMoreContent"
+        title="Anime"
+        :items="animeTV"
+        :loading="isLoadingMoreContent"
+      />
+
+      <!-- K-Dramas -->
+      <MediaCarousel
+        v-if="kDramas.length > 0 || isLoadingMoreContent"
+        title="K-Dramas"
+        :items="kDramas"
+        :loading="isLoadingMoreContent"
       />
 
       <!-- Top Rated Movies -->
@@ -339,6 +507,22 @@ onMounted(async () => {
         title="Top Rated TV Shows"
         :items="topRatedTV"
         :loading="isLoadingContent"
+      />
+
+      <!-- Hidden Gems -->
+      <MediaCarousel
+        v-if="hiddenGemsMovies.length > 0 || isLoadingMoreContent"
+        title="Hidden Gems"
+        :items="hiddenGemsMovies"
+        :loading="isLoadingMoreContent"
+      />
+
+      <!-- Documentaries -->
+      <MediaCarousel
+        v-if="documentaries.length > 0 || isLoadingMoreContent"
+        title="Documentaries"
+        :items="documentaries"
+        :loading="isLoadingMoreContent"
       />
     </div>
 </template>

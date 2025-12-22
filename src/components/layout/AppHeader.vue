@@ -1,29 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { useToast } from 'primevue/usetoast'
 import DownloadManager from '@/components/torrents/DownloadManager.vue'
 import { useAuthStore } from '@/stores/authStore'
-import { usePWAInstall } from '@/composables/usePWAInstall'
 
 const route = useRoute()
 const router = useRouter()
-const toast = useToast()
 const authStore = useAuthStore()
-const { canInstall, showInstallButton, installPWA } = usePWAInstall()
-
-const handleInstallClick = async () => {
-  const result = await installPWA()
-  if (result === 'manual') {
-    // Show instructions for manual installation
-    toast.add({
-      severity: 'info',
-      summary: 'Install App',
-      detail: 'Click the browser menu (⋮) and select "Install App" or "Add to Home Screen"',
-      life: 5000
-    })
-  }
-}
 
 const handleLogout = () => {
   authStore.logout()
@@ -33,8 +15,6 @@ const handleLogout = () => {
 const emit = defineEmits<{
   toggleSidebar: []
 }>()
-
-const isScrolled = ref(false)
 
 const navLinks = [
   { path: '/', label: 'Home', icon: 'pi-home' },
@@ -47,31 +27,12 @@ const isActiveRoute = (path: string) => {
   if (path === '/') return route.path === '/'
   return route.path.startsWith(path)
 }
-
-// Scroll handler for header background
-const handleScroll = () => {
-  isScrolled.value = window.scrollY > 50
-}
-
-onMounted(() => {
-  window.addEventListener('scroll', handleScroll)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('scroll', handleScroll)
-})
 </script>
 
 <template>
   <header
-    class="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
-    :class="[
-      isScrolled
-        ? 'bg-[#141414]'
-        : 'bg-gradient-to-b from-black/80 via-black/40 to-transparent'
-    ]"
-  >
-    <div class="max-w-[1920px] mx-auto px-3 sm:px-6 lg:px-12 xl:px-16 h-14 sm:h-16 lg:h-20 flex items-center justify-between gap-2 sm:gap-4">
+    class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-[#141414]">
+    <div class="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 h-14 flex items-center justify-between gap-2 sm:gap-4">
       <!-- Logo & Mobile Menu -->
       <div class="flex items-center gap-3 sm:gap-6">
         <button
@@ -123,16 +84,6 @@ onUnmounted(() => {
 
         <!-- Download Manager -->
         <DownloadManager />
-
-        <!-- PWA Install button -->
-        <button
-          v-if="showInstallButton || canInstall"
-          @click="handleInstallClick"
-          class="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white"
-          title="Install App"
-        >
-          <i class="pi pi-download text-lg"></i>
-        </button>
 
         <!-- Logout button (only show when auth is enabled and authenticated) -->
         <button

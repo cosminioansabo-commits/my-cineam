@@ -531,7 +531,7 @@ const searchSubtitles = async () => {
     const results = await subtitleService.searchSubtitles({
       query: props.title,
       language: selectedSearchLanguage.value,
-      type: props.mediaType,
+      type: props.mediaType === 'tv' ? 'episode' : props.mediaType,
       season: props.seasonNumber,
       episode: props.episodeNumber,
     })

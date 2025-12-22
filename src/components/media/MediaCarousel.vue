@@ -3,7 +3,6 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { Media } from '@/types'
 import MediaCard from './MediaCard.vue'
-import Skeleton from 'primevue/skeleton'
 
 const props = withDefaults(defineProps<{
   title: string

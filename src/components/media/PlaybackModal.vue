@@ -40,7 +40,6 @@ const isLoading = ref(false)
 const hasError = ref(false)
 const errorMessage = ref('')
 const playbackInfo = ref<PlaybackInfo | null>(null)
-const playerRef = ref<InstanceType<typeof VideoPlayer> | null>(null)
 const resumePosition = ref(0)
 
 // Next episode auto-play state
@@ -339,7 +338,6 @@ const displayTitle = computed(() => {
     <!-- Video Player -->
     <div v-else-if="playbackInfo && playbackInfo.streamUrl" class="h-[80vh] relative">
       <VideoPlayer
-        ref="playerRef"
         :stream-url="playbackInfo.streamUrl"
         :title="displayTitle"
         :resume-position="resumePosition"

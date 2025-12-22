@@ -63,16 +63,6 @@ const parsedInfo = computed(() => {
   return { title, season, episode, isComplete, formatInfo }
 })
 
-// Format season/episode display
-const seasonEpisodeLabel = computed(() => {
-  const { season, episode, isComplete } = parsedInfo.value
-
-  if (isComplete) return 'Complete Series'
-  if (season && episode) return `Season ${season}, Episode ${episode}`
-  if (season) return `Season ${season}`
-  return null
-})
-
 // Extract source/indexer from name
 const indexer = computed(() => {
   const match = props.torrent.name.match(/\[([^\]]+)\]\s*$/)

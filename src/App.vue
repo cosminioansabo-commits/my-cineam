@@ -28,8 +28,8 @@ onMounted(() => {
       <AppSidebar v-model:visible="sidebarVisible" />
     </template>
 
-    <main :class="showLayout ? 'pt-16 sm:pt-20 min-h-screen' : 'min-h-screen'">
-      <div :class="showLayout ? 'max-w-[1920px]' : ''">
+    <main :class="showLayout ? 'pt-14 min-h-screen' : 'min-h-screen'">
+      <div :class="showLayout ? 'max-w-[1920px] px-4' : ''">
         <RouterView />
       </div>
     </main>

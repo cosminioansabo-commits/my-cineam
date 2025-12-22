@@ -29,7 +29,8 @@ export interface RadarrMovie {
   sizeOnDisk: number
   status: string
   overview: string
-  images: { coverType: string; url: string }[]
+  images: { coverType: string; url: string; remoteUrl?: string }[]
+  ratings?: { tmdb?: { value: number } }
 }
 
 export interface SonarrSeries {
@@ -43,7 +44,8 @@ export interface SonarrSeries {
   path: string
   overview: string
   seasonCount?: number
-  images: { coverType: string; url: string }[]
+  images: { coverType: string; url: string; remoteUrl?: string }[]
+  ratings?: { value: number }
   statistics?: {
     seasonCount: number
     episodeFileCount: number

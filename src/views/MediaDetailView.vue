@@ -14,7 +14,6 @@ import PlaybackModal from '@/components/media/PlaybackModal.vue'
 import SeasonEpisodes from '@/components/media/SeasonEpisodes.vue'
 import Button from 'primevue/button'
 import Skeleton from 'primevue/skeleton'
-import Tag from 'primevue/tag'
 import { useToast } from 'primevue/usetoast'
 
 const route = useRoute()

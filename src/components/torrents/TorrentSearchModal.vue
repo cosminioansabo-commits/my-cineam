@@ -69,7 +69,6 @@ const searchQuery = computed(() => {
   if (props.customQuery) return props.customQuery
   return props.title
 })
-const displayTitle = computed(() => props.customQuery || props.title)
 
 // Use editableQuery for actual searches (allows user modification)
 async function performSearch() {

@@ -31,7 +31,7 @@ const failedDownloads = computed(() =>
 </script>
 
 <template>
-  <div class="downloads-view px-3 sm:px-6 py-4 sm:py-6 max-w-4xl mx-auto">
+  <div class="downloads-view max-w-4xl mx-auto">
     <div class="flex items-center justify-between mb-4 sm:mb-6">
       <h1 class="text-xl sm:text-2xl font-bold text-white">Downloads</h1>
 
@@ -82,7 +82,7 @@ const failedDownloads = computed(() =>
               </p>
             </div>
 
-            <div v-else class="flex flex-col gap-3 sm:gap-4">
+            <div v-else class="flex flex-col gap-2 sm:gap-4 p-2 sm:p-4">
               <DownloadProgress
                 v-for="download in activeDownloads"
                 :key="download.id"
@@ -103,7 +103,7 @@ const failedDownloads = computed(() =>
               <p class="text-gray-400 text-sm sm:text-base">No completed downloads</p>
             </div>
 
-            <div v-else class="flex flex-col gap-3 sm:gap-4">
+            <div v-else class="flex flex-col gap-2 sm:gap-4 p-2 sm:p-4">
               <DownloadProgress
                 v-for="download in completedDownloads"
                 :key="download.id"
@@ -122,7 +122,7 @@ const failedDownloads = computed(() =>
               <p class="text-gray-400 text-sm sm:text-base">No failed downloads</p>
             </div>
 
-            <div v-else class="flex flex-col gap-3 sm:gap-4">
+            <div v-else class="flex flex-col gap-2 sm:gap-4 p-2 sm:p-4">
               <DownloadProgress
                 v-for="download in failedDownloads"
                 :key="download.id"

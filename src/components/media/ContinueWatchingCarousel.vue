@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import type { Media } from '@/types'
 import { getImageUrl } from '@/services/tmdbService'
 import PlaybackModal from './PlaybackModal.vue'
 
