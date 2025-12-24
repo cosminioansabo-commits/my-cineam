@@ -50,7 +50,7 @@ const clearSearch = () => {
 </script>
 
 <template>
-  <div class="space-y-4 sm:space-y-6 mt-4">
+  <div class="space-y-4 sm:space-y-6 py-6">
     <!-- Search Header -->
     <div class="max-w-2xl mx-auto">
       <SearchBar

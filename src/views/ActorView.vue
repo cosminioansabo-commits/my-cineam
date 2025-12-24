@@ -133,9 +133,9 @@ const profileUrl = computed(() => {
 </script>
 
 <template>
-  <div class="-mx-3 sm:-mx-6 lg:-mx-10 -mt-4 sm:-mt-6">
+  <div class="py-6">
     <!-- Loading State -->
-    <div v-if="isLoading" class="px-3 sm:px-6 lg:px-8 py-6 sm:py-8">
+    <div v-if="isLoading">
       <div class="max-w-6xl mx-auto">
         <div class="flex flex-col md:flex-row gap-8">
           <Skeleton width="250px" height="375px" class="rounded-lg flex-shrink-0" />
@@ -149,7 +149,7 @@ const profileUrl = computed(() => {
     </div>
 
     <!-- Content -->
-    <div v-else-if="person" class="px-3 sm:px-6 lg:px-8 py-6 sm:py-8">
+    <div v-else-if="person">
       <!-- Back button -->
       <button
         class="mb-4 sm:mb-6 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center transition-colors"

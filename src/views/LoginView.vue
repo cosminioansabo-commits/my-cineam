@@ -32,7 +32,7 @@ const handleKeyPress = (e: KeyboardEvent) => {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-[#141414] p-4">
+  <div class="min-h-screen flex items-center justify-center bg-[#141414] p-6">
     <!-- Background gradient -->
     <div class="fixed inset-0 bg-gradient-to-br from-[#1a1a2e] via-[#141414] to-[#0f0f0f] -z-10"></div>
 
